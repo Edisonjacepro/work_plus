@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ offer.title }}{% endblock %}
+
+{% block body %}
+    <h1>{{ offer.title }}</h1>
+
+    <p><strong>Entreprise :</strong> {{ offer.company.name }}</p>
+    <p><strong>Auteur :</strong> {{ offer.author.email }}</p>
+
+    <p>{{ offer.description }}</p>
+
+    <p><strong>Catégories d’impact :</strong>
+        {% if offer.impactCategories is not empty %}
+            {{ offer.impactCategories|join(', ') }}
+        {% else %}
+            <em>Aucune</em>
+        {% endif %}
+    </p>
+
+    <p>
+        <a href="{{ path('offer_edit', {id: offer.id}) }}">Modifier</a>
+        |
+        <a href="{{ path('offer_index') }}">Retour à la liste</a>
+    </p>
+{% endblock %}

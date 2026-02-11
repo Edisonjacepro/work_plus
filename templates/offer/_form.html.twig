@@ -1,0 +1,8 @@
+{{ form_start(form) }}
+    {{ form_row(form.title) }}
+    {{ form_row(form.description) }}
+    {{ form_row(form.impactCategories) }}
+    {{ form_row(form.company) }}
+    {{ form_row(form.author) }}
+    <button class="btn">{{ button_label|default('Enregistrer') }}</button>
+{{ form_end(form) }}

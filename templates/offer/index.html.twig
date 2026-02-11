@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Offres{% endblock %}
+
+{% block body %}
+    <h1>Offres</h1>
+
+    <p><a href="{{ path('offer_new') }}">Créer une offre</a></p>
+
+    {% if offers is empty %}
+        <p>Aucune offre.</p>
+    {% else %}
+        <ul>
+            {% for offer in offers %}
+                <li>
+                    <a href="{{ path('offer_show', {id: offer.id}) }}">{{ offer.title }}</a>
+                    — {{ offer.company.name }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock %}
