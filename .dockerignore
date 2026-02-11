@@ -1,0 +1,6 @@
+/var
+/vendor
+/.git
+/.env.local
+/.env.*.local
+/.symfony-tmp-1
