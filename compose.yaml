@@ -6,6 +6,7 @@ services:
       dockerfile: docker/php/Dockerfile
     volumes:
       - ./:/var/www/html:rw
+      - app_var:/var/www/html/var:rw
     environment:
       APP_ENV: prod
       APP_DEBUG: 0
@@ -42,3 +43,4 @@ volumes:
 ###> doctrine/doctrine-bundle ###
   database_data:
 ###< doctrine/doctrine-bundle ###
+  app_var:
