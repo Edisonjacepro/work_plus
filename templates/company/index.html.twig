@@ -1,0 +1,21 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Entreprises{% endblock %}
+
+{% block body %}
+    <h1>Entreprises</h1>
+
+    <p><a href="{{ path('company_new') }}">Créer une entreprise</a></p>
+
+    {% if companies is empty %}
+        <p>Aucune entreprise.</p>
+    {% else %}
+        <ul>
+            {% for company in companies %}
+                <li>
+                    <a href="{{ path('company_show', {id: company.id}) }}">{{ company.name }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock %}

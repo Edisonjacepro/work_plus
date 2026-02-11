@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ company.name }}{% endblock %}
+
+{% block body %}
+    <h1>{{ company.name }}</h1>
+
+    {% if company.description %}
+        <p>{{ company.description }}</p>
+    {% else %}
+        <p><em>Aucune description.</em></p>
+    {% endif %}
+
+    <p>
+        <a href="{{ path('company_edit', {id: company.id}) }}">Modifier</a>
+        |
+        <a href="{{ path('company_index') }}">Retour à la liste</a>
+    </p>
+{% endblock %}
