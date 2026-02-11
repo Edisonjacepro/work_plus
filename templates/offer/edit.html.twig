@@ -1,0 +1,16 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Modifier l'offre{% endblock %}
+
+{% block body %}
+    <h1>Modifier l'offre</h1>
+
+    {{ include('offer/_form.html.twig', {button_label: 'Mettre à jour'}) }}
+
+    <form method="post" action="{{ path('offer_delete', {id: offer.id}) }}" onsubmit="return confirm('Supprimer cette offre ?');">
+        <input type="hidden" name="_token" value="{{ csrf_token('delete_offer_' ~ offer.id) }}">
+        <button class="btn">Supprimer</button>
+    </form>
+
+    <p><a href="{{ path('offer_show', {id: offer.id}) }}">Retour</a></p>
+{% endblock %}
