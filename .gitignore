@@ -13,3 +13,5 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
+# Local instructions (do not commit)
+/agents.md
