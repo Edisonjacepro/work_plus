@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Work+{% endblock %}
+
+{% block body %}
+    <section>
+        <h1>Work+</h1>
+        <p>Plateforme de travail à impact positif.</p>
+    </section>
+
+    <section>
+        <h2>Accès rapide</h2>
+        <ul>
+            <li><a href="{{ path('company_index') }}">Entreprises</a></li>
+            <li><a href="{{ path('offer_index') }}">Offres</a></li>
+        </ul>
+    </section>
+{% endblock %}
