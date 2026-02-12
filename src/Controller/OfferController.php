@@ -42,7 +42,7 @@ class OfferController extends AbstractController
             || $user->getAccountType() !== \App\Entity\User::ACCOUNT_TYPE_COMPANY
             || !$user->getCompany()
         ) {
-            $this->addFlash('error', 'Vous devez être connecté avec un compte entreprise pour créer une offre.');
+            $this->addFlash('error', 'Veuillez vous connecter avec un compte entreprise pour créer une offre.');
             return $this->redirectToRoute('home');
         }
 
