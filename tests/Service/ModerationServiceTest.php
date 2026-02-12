@@ -7,6 +7,7 @@ use App\Entity\Offer;
 use App\Entity\User;
 use App\Service\ModerationService;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
 class ModerationServiceTest extends TestCase
@@ -25,6 +26,7 @@ class ModerationServiceTest extends TestCase
         self::assertSame(Offer::STATUS_SUBMITTED, $offer->getStatus());
     }
 
+    #[AllowMockObjectsWithoutExpectations]
     public function testRejectRequiresReason(): void
     {
         $offer = new Offer();

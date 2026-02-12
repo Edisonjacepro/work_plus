@@ -30,7 +30,11 @@ class OfferController extends AbstractController
     public function new(Request $request, EntityManagerInterface $entityManager): Response
     {
         $user = $this->getUser();
-        if (!$user instanceof \App\Entity\User || !$user->getCompany()) {
+        if (
+            !$user instanceof \App\Entity\User
+            || $user->getAccountType() !== \App\Entity\User::ACCOUNT_TYPE_COMPANY
+            || !$user->getCompany()
+        ) {
             $this->addFlash('error', 'Vous devez être connecté avec un compte entreprise pour créer une offre.');
             return $this->redirectToRoute('home');
         }

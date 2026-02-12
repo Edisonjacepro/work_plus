@@ -1,0 +1,31 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Connexion{% endblock %}
+
+{% block body %}
+    <section>
+        <h1>Connexion</h1>
+
+        {% if error %}
+            <p><strong>Erreur :</strong> {{ error.messageKey|trans(error.messageData, 'security') }}</p>
+        {% endif %}
+
+        <form method="post">
+            <label for="inputEmail">Email</label>
+            <input type="email" id="inputEmail" name="_username" value="{{ last_username }}" required autofocus>
+
+            <label for="inputPassword">Mot de passe</label>
+            <input type="password" id="inputPassword" name="_password" required>
+
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+            <button class="btn" type="submit">Se connecter</button>
+        </form>
+
+        <p>
+            <a href="{{ path('app_register_company') }}">Créer un compte entreprise</a>
+            |
+            <a href="{{ path('app_register_person') }}">Créer un compte candidat</a>
+        </p>
+    </section>
+{% endblock %}
