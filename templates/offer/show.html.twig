@@ -47,5 +47,15 @@
         </section>
     {% endif %}
 
+    {% if offer.status == constant('App\\Entity\\Offer::STATUS_PUBLISHED') %}
+        <section>
+            <h2>Repasser en brouillon</h2>
+            <form method="post" action="{{ path('offer_unpublish', {id: offer.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('unpublish_offer_' ~ offer.id) }}">
+                <button class="btn" type="submit">Mettre en brouillon</button>
+            </form>
+        </section>
+    {% endif %}
+
     
 {% endblock %}

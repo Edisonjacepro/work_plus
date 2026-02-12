@@ -102,7 +102,31 @@ class OfferController extends AbstractController
     public function publish(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
         if ($this->isCsrfTokenValid('publish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
+            $user = $this->getUser();
+            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
+                $this->addFlash('error', 'Seul l’auteur peut publier cette offre.');
+                return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+            }
+
             $offer->setStatus(Offer::STATUS_PUBLISHED);
+            $entityManager->flush();
+        }
+
+        return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+    }
+
+    #[Route('/{id}/unpublish', name: 'offer_unpublish', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function unpublish(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
+    {
+        if ($this->isCsrfTokenValid('unpublish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
+            $user = $this->getUser();
+            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
+                $this->addFlash('error', 'Seul l’auteur peut modifier le statut de cette offre.');
+                return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+            }
+
+            $offer->setStatus(Offer::STATUS_DRAFT);
             $entityManager->flush();
         }
 
