@@ -8,6 +8,7 @@ use App\Form\RegistrationCompanyType;
 use App\Form\RegistrationPersonType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -41,11 +42,17 @@ class RegistrationController extends AbstractController
             $user->setCompany($company);
             $user->setPassword($passwordHasher->hashPassword($user, (string) $data['plainPassword']));
 
-            $entityManager->persist($company);
-            $entityManager->persist($user);
-            $entityManager->flush();
+            try {
+                $entityManager->persist($company);
+                $entityManager->persist($user);
+                $entityManager->flush();
 
-            return $this->redirectToRoute('app_login');
+                $this->addFlash('success', 'Compte entreprise créé. Vous pouvez vous connecter.');
+                return $this->redirectToRoute('app_login');
+            } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+                $form->addError(new FormError('Cet email est déjà utilisé.'));
+                $this->addFlash('error', 'Cet email est déjà utilisé.');
+            }
         }
 
         return $this->render('registration/company.html.twig', [
@@ -76,10 +83,16 @@ class RegistrationController extends AbstractController
             $user->setAccountType(User::ACCOUNT_TYPE_PERSON);
             $user->setPassword($passwordHasher->hashPassword($user, (string) $data['plainPassword']));
 
-            $entityManager->persist($user);
-            $entityManager->flush();
+            try {
+                $entityManager->persist($user);
+                $entityManager->flush();
 
-            return $this->redirectToRoute('app_login');
+                $this->addFlash('success', 'Compte candidat créé. Vous pouvez vous connecter.');
+                return $this->redirectToRoute('app_login');
+            } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+                $form->addError(new FormError('Cet email est déjà utilisé.'));
+                $this->addFlash('error', 'Cet email est déjà utilisé.');
+            }
         }
 
         return $this->render('registration/person.html.twig', [
