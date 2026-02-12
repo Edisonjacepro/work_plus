@@ -71,7 +71,8 @@ class OfferController extends AbstractController
         if (!$this->isGranted('ROLE_ADMIN')) {
             $user = $this->getUser();
             if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                throw $this->createAccessDeniedException();
+                $this->addFlash('error', 'Accès refusé : cette offre ne vous appartient pas.');
+                return $this->redirectToRoute('offer_index');
             }
         }
 
@@ -87,7 +88,8 @@ class OfferController extends AbstractController
         if (!$this->isGranted('ROLE_ADMIN')) {
             $user = $this->getUser();
             if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                throw $this->createAccessDeniedException();
+                $this->addFlash('error', 'Accès refusé : cette offre ne vous appartient pas.');
+                return $this->redirectToRoute('offer_index');
             }
         }
 
@@ -113,7 +115,8 @@ class OfferController extends AbstractController
         if (!$this->isGranted('ROLE_ADMIN')) {
             $user = $this->getUser();
             if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                throw $this->createAccessDeniedException();
+                $this->addFlash('error', 'Accès refusé : cette offre ne vous appartient pas.');
+                return $this->redirectToRoute('offer_index');
             }
         }
 
