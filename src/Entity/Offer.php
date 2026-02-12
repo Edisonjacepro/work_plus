@@ -4,6 +4,8 @@ namespace App\Entity;
 
 use App\Repository\OfferRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: OfferRepository::class)]
@@ -58,9 +60,16 @@ class Offer
     #[ORM\Column]
     private ?\DateTimeImmutable $updatedAt = null;
 
+    /**
+     * @var Collection<int, ModerationReview>
+     */
+    #[ORM\OneToMany(mappedBy: 'offer', targetEntity: ModerationReview::class, cascade: ['persist'])]
+    private Collection $moderationReviews;
+
     public function __construct()
     {
         $this->status = self::STATUS_DRAFT;
+        $this->moderationReviews = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -148,6 +157,24 @@ class Offer
     public function getUpdatedAt(): ?\DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    /**
+     * @return Collection<int, ModerationReview>
+     */
+    public function getModerationReviews(): Collection
+    {
+        return $this->moderationReviews;
+    }
+
+    public function addModerationReview(ModerationReview $review): static
+    {
+        if (!$this->moderationReviews->contains($review)) {
+            $this->moderationReviews->add($review);
+            $review->setOffer($this);
+        }
+
+        return $this;
     }
 
     #[ORM\PrePersist]
