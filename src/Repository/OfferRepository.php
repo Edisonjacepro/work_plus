@@ -28,4 +28,17 @@ class OfferRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * @return Offer[]
+     */
+    public function findByAuthor(int $authorId): array
+    {
+        return $this->createQueryBuilder('o')
+            ->andWhere('o.author = :authorId')
+            ->setParameter('authorId', $authorId)
+            ->orderBy('o.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }

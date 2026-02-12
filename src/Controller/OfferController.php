@@ -18,6 +18,13 @@ class OfferController extends AbstractController
     #[Route('', name: 'offer_index', methods: ['GET'])]
     public function index(OfferRepository $offerRepository): Response
     {
+        $user = $this->getUser();
+        if ($user instanceof \App\Entity\User && !$this->isGranted('ROLE_ADMIN')) {
+            return $this->render('offer/index.html.twig', [
+                'offers' => $offerRepository->findByAuthor($user->getId() ?? 0),
+            ]);
+        }
+
         return $this->render('offer/index.html.twig', [
             'offers' => $this->isGranted('ROLE_ADMIN')
                 ? $offerRepository->findAll()
@@ -61,6 +68,13 @@ class OfferController extends AbstractController
     #[Route('/{id}', name: 'offer_show', methods: ['GET'])]
     public function show(Offer $offer): Response
     {
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            $user = $this->getUser();
+            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
+                throw $this->createAccessDeniedException();
+            }
+        }
+
         return $this->render('offer/show.html.twig', [
             'offer' => $offer,
         ]);
@@ -70,6 +84,13 @@ class OfferController extends AbstractController
     #[IsGranted('ROLE_USER')]
     public function edit(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            $user = $this->getUser();
+            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
+                throw $this->createAccessDeniedException();
+            }
+        }
+
         $form = $this->createForm(OfferType::class, $offer);
         $form->handleRequest($request);
 
@@ -89,6 +110,13 @@ class OfferController extends AbstractController
     #[IsGranted('ROLE_USER')]
     public function delete(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            $user = $this->getUser();
+            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
+                throw $this->createAccessDeniedException();
+            }
+        }
+
         if ($this->isCsrfTokenValid('delete_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
             $entityManager->remove($offer);
             $entityManager->flush();
@@ -102,10 +130,12 @@ class OfferController extends AbstractController
     public function publish(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
         if ($this->isCsrfTokenValid('publish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
-            $user = $this->getUser();
-            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                $this->addFlash('error', 'Seul l’auteur peut publier cette offre.');
-                return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+            if (!$this->isGranted('ROLE_ADMIN')) {
+                $user = $this->getUser();
+                if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
+                    $this->addFlash('error', 'Seul l’auteur peut publier cette offre.');
+                    return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+                }
             }
 
             $offer->setStatus(Offer::STATUS_PUBLISHED);
@@ -120,10 +150,12 @@ class OfferController extends AbstractController
     public function unpublish(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
         if ($this->isCsrfTokenValid('unpublish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
-            $user = $this->getUser();
-            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                $this->addFlash('error', 'Seul l’auteur peut modifier le statut de cette offre.');
-                return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+            if (!$this->isGranted('ROLE_ADMIN')) {
+                $user = $this->getUser();
+                if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
+                    $this->addFlash('error', 'Seul l’auteur peut modifier le statut de cette offre.');
+                    return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+                }
             }
 
             $offer->setStatus(Offer::STATUS_DRAFT);
