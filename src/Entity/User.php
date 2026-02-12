@@ -140,6 +140,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->accountType;
     }
 
+    public function isCompany(): bool
+    {
+        return $this->accountType === self::ACCOUNT_TYPE_COMPANY;
+    }
+
+    public function isPerson(): bool
+    {
+        return $this->accountType === self::ACCOUNT_TYPE_PERSON;
+    }
+
     public function setAccountType(string $accountType): static
     {
         $this->accountType = $accountType;
