@@ -37,7 +37,7 @@ class Offer
     private string $status = self::STATUS_DRAFT;
 
     #[ORM\Column(type: 'json')]
-    #[Assert\Count(min: 1)]
+    #[Assert\Count(min: 1, minMessage: 'Veuillez sélectionner au moins une catégorie d’impact.')]
     private array $impactCategories = [];
 
     #[ORM\ManyToOne(inversedBy: 'offers')]
