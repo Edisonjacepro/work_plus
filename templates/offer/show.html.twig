@@ -39,18 +39,13 @@
 
     {% if offer.status == constant('App\\Entity\\Offer::STATUS_DRAFT') %}
         <section>
-            <h2>Soumettre à la modération</h2>
-            <form method="post" action="{{ path('offer_submit', {id: offer.id}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('submit_offer_' ~ offer.id) }}">
-                <button class="btn" type="submit">Soumettre</button>
+            <h2>Publier l’offre</h2>
+            <form method="post" action="{{ path('offer_publish', {id: offer.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('publish_offer_' ~ offer.id) }}">
+                <button class="btn" type="submit">Publier</button>
             </form>
         </section>
     {% endif %}
 
-    {% if offer.status == constant('App\\Entity\\Offer::STATUS_SUBMITTED') %}
-        <section>
-            <h2>Modération</h2>
-            <a class="btn" href="{{ path('offer_moderate', {id: offer.id}) }}">Prendre une décision</a>
-        </section>
-    {% endif %}
+    
 {% endblock %}

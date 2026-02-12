@@ -13,9 +13,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 class Offer
 {
     public const STATUS_DRAFT = 'DRAFT';
-    public const STATUS_SUBMITTED = 'SUBMITTED';
-    public const STATUS_APPROVED = 'APPROVED';
-    public const STATUS_REJECTED = 'REJECTED';
+    public const STATUS_PUBLISHED = 'PUBLISHED';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -34,9 +32,7 @@ class Offer
     #[Assert\NotBlank]
     #[Assert\Choice(choices: [
         self::STATUS_DRAFT,
-        self::STATUS_SUBMITTED,
-        self::STATUS_APPROVED,
-        self::STATUS_REJECTED,
+        self::STATUS_PUBLISHED,
     ])]
     private string $status = self::STATUS_DRAFT;
 
@@ -63,16 +59,9 @@ class Offer
     #[ORM\Column(options: ['default' => true])]
     private bool $isVisible = true;
 
-    /**
-     * @var Collection<int, ModerationReview>
-     */
-    #[ORM\OneToMany(mappedBy: 'offer', targetEntity: ModerationReview::class, cascade: ['persist'])]
-    private Collection $moderationReviews;
-
     public function __construct()
     {
         $this->status = self::STATUS_DRAFT;
-        $this->moderationReviews = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -174,23 +163,6 @@ class Offer
         return $this;
     }
 
-    /**
-     * @return Collection<int, ModerationReview>
-     */
-    public function getModerationReviews(): Collection
-    {
-        return $this->moderationReviews;
-    }
-
-    public function addModerationReview(ModerationReview $review): static
-    {
-        if (!$this->moderationReviews->contains($review)) {
-            $this->moderationReviews->add($review);
-            $review->setOffer($this);
-        }
-
-        return $this;
-    }
 
     #[ORM\PrePersist]
     public function onPrePersist(): void

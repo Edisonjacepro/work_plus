@@ -97,6 +97,18 @@ class OfferController extends AbstractController
         return $this->redirectToRoute('offer_index');
     }
 
+    #[Route('/{id}/publish', name: 'offer_publish', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function publish(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
+    {
+        if ($this->isCsrfTokenValid('publish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
+            $offer->setStatus(Offer::STATUS_PUBLISHED);
+            $entityManager->flush();
+        }
+
+        return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+    }
+
     #[Route('/{id}/visibility', name: 'offer_toggle_visibility', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN')]
     public function toggleVisibility(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
