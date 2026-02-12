@@ -5,8 +5,6 @@
 {% block body %}
     <h1>Entreprises</h1>
 
-    <p><a href="{{ path('company_new') }}">Créer une entreprise</a></p>
-
     {% if companies is empty %}
         <p>Aucune entreprise.</p>
     {% else %}
