@@ -18,4 +18,11 @@ class UserTest extends TestCase
         self::assertSame($user, $offer->getAuthor());
         self::assertCount(1, $user->getOffers());
     }
+
+    public function testDefaultAccountTypeIsCompany(): void
+    {
+        $user = new User();
+
+        self::assertSame(User::ACCOUNT_TYPE_COMPANY, $user->getAccountType());
+    }
 }

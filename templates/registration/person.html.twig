@@ -1,0 +1,16 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Inscription candidat{% endblock %}
+
+{% block body %}
+    <section>
+        <h1>Créer un compte candidat</h1>
+        {{ form_start(form) }}
+            {{ form_row(form.firstName) }}
+            {{ form_row(form.lastName) }}
+            {{ form_row(form.email) }}
+            {{ form_row(form.plainPassword) }}
+            <button class="btn">Créer le compte</button>
+        {{ form_end(form) }}
+    </section>
+{% endblock %}

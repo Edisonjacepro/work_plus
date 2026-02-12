@@ -1,0 +1,16 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Inscription entreprise{% endblock %}
+
+{% block body %}
+    <section>
+        <h1>Créer un compte entreprise</h1>
+        {{ form_start(form) }}
+            {{ form_row(form.email) }}
+            {{ form_row(form.plainPassword) }}
+            {{ form_row(form.companyName) }}
+            {{ form_row(form.companyDescription) }}
+            <button class="btn">Créer le compte</button>
+        {{ form_end(form) }}
+    </section>
+{% endblock %}
