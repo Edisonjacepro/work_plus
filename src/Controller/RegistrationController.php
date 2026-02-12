@@ -47,7 +47,7 @@ class RegistrationController extends AbstractController
                 $entityManager->persist($user);
                 $entityManager->flush();
 
-                $this->addFlash('success', 'Compte entreprise créé. Vous pouvez vous connecter.');
+                $this->addFlash('success', 'Compte entreprise créé. Veuillez vous connecter.');
                 return $this->redirectToRoute('app_login');
             } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
                 $form->addError(new FormError('Cet email est déjà utilisé.'));
@@ -87,7 +87,7 @@ class RegistrationController extends AbstractController
                 $entityManager->persist($user);
                 $entityManager->flush();
 
-                $this->addFlash('success', 'Compte candidat créé. Vous pouvez vous connecter.');
+                $this->addFlash('success', 'Compte candidat créé. Veuillez vous connecter.');
                 return $this->redirectToRoute('app_login');
             } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
                 $form->addError(new FormError('Cet email est déjà utilisé.'));
