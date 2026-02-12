@@ -36,9 +36,16 @@ class Company
     #[ORM\OneToMany(mappedBy: 'company', targetEntity: Offer::class)]
     private Collection $offers;
 
+    /**
+     * @var Collection<int, User>
+     */
+    #[ORM\OneToMany(mappedBy: 'company', targetEntity: User::class)]
+    private Collection $users;
+
     public function __construct()
     {
         $this->offers = new ArrayCollection();
+        $this->users = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -86,6 +93,14 @@ class Company
     public function getOffers(): Collection
     {
         return $this->offers;
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    public function getUsers(): Collection
+    {
+        return $this->users;
     }
 
     public function addOffer(Offer $offer): static

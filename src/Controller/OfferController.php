@@ -10,6 +10,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/offers')]
 class OfferController extends AbstractController
@@ -18,14 +19,25 @@ class OfferController extends AbstractController
     public function index(OfferRepository $offerRepository): Response
     {
         return $this->render('offer/index.html.twig', [
-            'offers' => $offerRepository->findAll(),
+            'offers' => $this->isGranted('ROLE_ADMIN')
+                ? $offerRepository->findAll()
+                : $offerRepository->findVisible(),
         ]);
     }
 
     #[Route('/new', name: 'offer_new', methods: ['GET', 'POST'])]
+    #[IsGranted('ROLE_USER')]
     public function new(Request $request, EntityManagerInterface $entityManager): Response
     {
+        $user = $this->getUser();
+        if (!$user instanceof \App\Entity\User || !$user->getCompany()) {
+            $this->addFlash('error', 'Vous devez être connecté avec un compte entreprise pour créer une offre.');
+            return $this->redirectToRoute('home');
+        }
+
         $offer = new Offer();
+        $offer->setAuthor($user);
+        $offer->setCompany($user->getCompany());
         $form = $this->createForm(OfferType::class, $offer);
         $form->handleRequest($request);
 
@@ -51,6 +63,7 @@ class OfferController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'offer_edit', methods: ['GET', 'POST'])]
+    #[IsGranted('ROLE_USER')]
     public function edit(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
         $form = $this->createForm(OfferType::class, $offer);
@@ -69,6 +82,7 @@ class OfferController extends AbstractController
     }
 
     #[Route('/{id}', name: 'offer_delete', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
     public function delete(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
         if ($this->isCsrfTokenValid('delete_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
@@ -77,5 +91,17 @@ class OfferController extends AbstractController
         }
 
         return $this->redirectToRoute('offer_index');
+    }
+
+    #[Route('/{id}/visibility', name: 'offer_toggle_visibility', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function toggleVisibility(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
+    {
+        if ($this->isCsrfTokenValid('toggle_visibility_' . $offer->getId(), (string) $request->request->get('_token'))) {
+            $offer->setIsVisible(!$offer->isVisible());
+            $entityManager->flush();
+        }
+
+        return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
     }
 }

@@ -13,4 +13,11 @@ class OfferTest extends TestCase
 
         self::assertSame(Offer::STATUS_DRAFT, $offer->getStatus());
     }
+
+    public function testIsVisibleByDefault(): void
+    {
+        $offer = new Offer();
+
+        self::assertTrue($offer->isVisible());
+    }
 }

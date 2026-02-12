@@ -50,6 +50,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(mappedBy: 'author', targetEntity: Offer::class)]
     private Collection $offers;
 
+    #[ORM\ManyToOne(inversedBy: 'users')]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Company $company = null;
+
     public function __construct()
     {
         $this->offers = new ArrayCollection();
@@ -135,6 +139,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getOffers(): Collection
     {
         return $this->offers;
+    }
+
+    public function getCompany(): ?Company
+    {
+        return $this->company;
+    }
+
+    public function setCompany(?Company $company): static
+    {
+        $this->company = $company;
+
+        return $this;
     }
 
     public function addOffer(Offer $offer): static

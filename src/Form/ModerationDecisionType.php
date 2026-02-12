@@ -3,8 +3,6 @@
 namespace App\Form;
 
 use App\Entity\ModerationReview;
-use App\Entity\User;
-use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -26,12 +24,6 @@ class ModerationDecisionType extends AbstractType
             ->add('reason', TextareaType::class, [
                 'required' => false,
                 'help' => 'Obligatoire si rejet.',
-            ])
-            ->add('reviewer', EntityType::class, [
-                'class' => User::class,
-                'choice_label' => 'email',
-                'placeholder' => 'Sélectionner un reviewer',
-                'label' => 'Reviewer',
             ]);
     }
 

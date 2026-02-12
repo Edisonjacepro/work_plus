@@ -2,10 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Company;
 use App\Entity\Offer;
-use App\Entity\User;
-use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -31,17 +28,6 @@ class OfferType extends AbstractType
                 'multiple' => true,
                 'expanded' => true,
                 'label' => 'Catégories d’impact',
-            ])
-            ->add('company', EntityType::class, [
-                'class' => Company::class,
-                'choice_label' => 'name',
-                'placeholder' => 'Sélectionner une entreprise',
-            ])
-            ->add('author', EntityType::class, [
-                'class' => User::class,
-                'choice_label' => 'email',
-                'placeholder' => 'Sélectionner un auteur',
-                'label' => 'Auteur',
             ]);
     }
 
