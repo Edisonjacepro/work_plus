@@ -15,4 +15,17 @@ class OfferRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Offer::class);
     }
+
+    /**
+     * @return Offer[]
+     */
+    public function findVisible(): array
+    {
+        return $this->createQueryBuilder('o')
+            ->andWhere('o.isVisible = :visible')
+            ->setParameter('visible', true)
+            ->orderBy('o.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }
