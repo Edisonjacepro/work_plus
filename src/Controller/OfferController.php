@@ -18,17 +18,32 @@ class OfferController extends AbstractController
     #[Route('', name: 'offer_index', methods: ['GET'])]
     public function index(OfferRepository $offerRepository): Response
     {
+        return $this->render('offer/index.html.twig', [
+            'offers' => $offerRepository->findPublicPublished(),
+        ]);
+    }
+
+    #[Route('/recruiter', name: 'recruiter_offer_index', methods: ['GET'])]
+    #[\Symfony\Component\Security\Http\Attribute\IsGranted('ROLE_USER')]
+    public function recruiterIndex(OfferRepository $offerRepository): Response
+    {
         $user = $this->getUser();
-        if ($user instanceof \App\Entity\User && !$this->isGranted('ROLE_ADMIN')) {
-            return $this->render('offer/index.html.twig', [
-                'offers' => $offerRepository->findByAuthor($user->getId() ?? 0),
+        if (
+            !$user instanceof \App\Entity\User
+            || $user->getAccountType() !== \App\Entity\User::ACCOUNT_TYPE_COMPANY
+        ) {
+            $this->addFlash('error', 'Accès refusé : vous devez être un recruteur.');
+            return $this->redirectToRoute('offer_index');
+        }
+
+        if ($this->isGranted('ROLE_ADMIN')) {
+            return $this->render('offer/recruiter_index.html.twig', [
+                'offers' => $offerRepository->findAll(),
             ]);
         }
 
-        return $this->render('offer/index.html.twig', [
-            'offers' => $this->isGranted('ROLE_ADMIN')
-                ? $offerRepository->findAll()
-                : $offerRepository->findVisible(),
+        return $this->render('offer/recruiter_index.html.twig', [
+            'offers' => $offerRepository->findByAuthor($user->getId() ?? 0),
         ]);
     }
 

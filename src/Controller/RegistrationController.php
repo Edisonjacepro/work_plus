@@ -6,6 +6,7 @@ use App\Entity\Company;
 use App\Entity\User;
 use App\Form\RegistrationCompanyType;
 use App\Form\RegistrationPersonType;
+use App\Repository\CompanyRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -20,7 +21,8 @@ class RegistrationController extends AbstractController
     public function registerCompany(
         Request $request,
         EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher
+        UserPasswordHasherInterface $passwordHasher,
+        CompanyRepository $companyRepository
     ): Response {
         if ($this->getUser()) {
             return $this->redirectToRoute('home');
@@ -31,27 +33,40 @@ class RegistrationController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $data = $form->getData();
+            $existingCompany = $data['existingCompany'] ?? null;
+            $companyName = trim((string) ($data['companyName'] ?? ''));
 
-            $company = new Company();
-            $company->setName($data['companyName']);
-            $company->setDescription($data['companyDescription'] ?? null);
+            if (!$existingCompany && $companyName === '') {
+                $form->addError(new FormError('Veuillez sélectionner une entreprise existante ou en créer une nouvelle.'));
+            } else {
+                $company = $existingCompany;
 
-            $user = new User();
-            $user->setEmail($data['email']);
-            $user->setAccountType(User::ACCOUNT_TYPE_COMPANY);
-            $user->setCompany($company);
-            $user->setPassword($passwordHasher->hashPassword($user, (string) $data['plainPassword']));
+                if (!$company) {
+                    $company = $companyRepository->findOneBy(['name' => $companyName]);
+                }
 
-            try {
-                $entityManager->persist($company);
-                $entityManager->persist($user);
-                $entityManager->flush();
+                if (!$company) {
+                    $company = new Company();
+                    $company->setName($companyName);
+                }
 
-                $this->addFlash('success', 'Compte entreprise créé. Veuillez vous connecter.');
-                return $this->redirectToRoute('app_login');
-            } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
-                $form->addError(new FormError('Cet email est déjà utilisé.'));
-                $this->addFlash('error', 'Cet email est déjà utilisé.');
+                $user = new User();
+                $user->setEmail($data['email']);
+                $user->setAccountType(User::ACCOUNT_TYPE_COMPANY);
+                $user->setCompany($company);
+                $user->setPassword($passwordHasher->hashPassword($user, (string) $data['plainPassword']));
+
+                try {
+                    $entityManager->persist($company);
+                    $entityManager->persist($user);
+                    $entityManager->flush();
+
+                    $this->addFlash('success', 'Compte entreprise créé. Veuillez vous connecter.');
+                    return $this->redirectToRoute('app_login');
+                } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+                    $form->addError(new FormError('Cet email est déjà utilisé.'));
+                    $this->addFlash('error', 'Cet email est déjà utilisé.');
+                }
             }
         }
 

@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mes offres{% endblock %}
+
+{% block body %}
+    <h1>Mes offres</h1>
+
+    <p><a href="{{ path('offer_new') }}">Créer une offre</a></p>
+
+    {% if offers is empty %}
+        <p>Aucune offre.</p>
+    {% else %}
+        <ul>
+            {% for offer in offers %}
+                <li>
+                    <a href="{{ path('offer_show', {id: offer.id}) }}">{{ offer.title }}</a>
+                    — {{ offer.company.name }}
+                    <span class="status-badge status-{{ offer.status|lower }}">
+                        {{ offer.status == constant('App\\\\Entity\\\\Offer::STATUS_PUBLISHED') ? 'Publié' : 'Brouillon' }}
+                    </span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock %}

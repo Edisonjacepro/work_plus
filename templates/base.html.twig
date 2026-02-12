@@ -18,6 +18,9 @@
                 <nav class="nav">
                     <a class="nav-link" href="{{ path('company_index') }}">Entreprises</a>
                     <a class="nav-link" href="{{ path('offer_index') }}">Offres</a>
+                    {% if app.user and app.user.isCompany %}
+                        <a class="nav-link" href="{{ path('recruiter_offer_index') }}">Mes offres</a>
+                    {% endif %}
                     {% if app.user %}
                         <span class="nav-link">{{ app.user.email }}</span>
                         <a class="nav-link" href="{{ path('app_logout') }}">Déconnexion</a>

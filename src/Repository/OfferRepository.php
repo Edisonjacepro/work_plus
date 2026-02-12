@@ -41,4 +41,19 @@ class OfferRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * @return Offer[]
+     */
+    public function findPublicPublished(): array
+    {
+        return $this->createQueryBuilder('o')
+            ->andWhere('o.isVisible = :visible')
+            ->andWhere('o.status = :status')
+            ->setParameter('visible', true)
+            ->setParameter('status', Offer::STATUS_PUBLISHED)
+            ->orderBy('o.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }
