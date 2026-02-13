@@ -9,6 +9,7 @@ use App\Entity\User;
 use App\Form\ApplicationMessageType;
 use App\Repository\ApplicationRepository;
 use App\Security\ApplicationVoter;
+use App\Service\ApplicationMessageNotifier;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -78,7 +79,13 @@ class ApplicationController extends AbstractController
     }
 
     #[Route('/{id}/reply', name: 'application_reply', methods: ['POST'])]
-    public function reply(Request $request, Application $application, EntityManagerInterface $entityManager, string $applicationAttachmentDir): Response
+    public function reply(
+        Request $request,
+        Application $application,
+        EntityManagerInterface $entityManager,
+        ApplicationMessageNotifier $notifier,
+        string $applicationAttachmentDir,
+    ): Response
     {
         if (!$this->isGranted(ApplicationVoter::REPLY, $application)) {
             throw $this->createAccessDeniedException();
@@ -141,6 +148,12 @@ class ApplicationController extends AbstractController
 
         $entityManager->persist($message);
         $entityManager->flush();
+
+        try {
+            $notifier->sendNewMessageNotification($message);
+        } catch (\Throwable) {
+            $this->addFlash('error', 'Le message est enregistre, mais la notification email a echoue.');
+        }
 
         $this->addFlash('success', 'Votre message a ete envoye.');
 
