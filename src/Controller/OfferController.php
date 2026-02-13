@@ -3,8 +3,10 @@
 namespace App\Controller;
 
 use App\Entity\Offer;
+use App\Entity\User;
 use App\Form\OfferType;
 use App\Repository\OfferRepository;
+use App\Security\OfferVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,15 +26,12 @@ class OfferController extends AbstractController
     }
 
     #[Route('/recruiter', name: 'recruiter_offer_index', methods: ['GET'])]
-    #[\Symfony\Component\Security\Http\Attribute\IsGranted('ROLE_USER')]
+    #[IsGranted('ROLE_USER')]
     public function recruiterIndex(OfferRepository $offerRepository): Response
     {
         $user = $this->getUser();
-        if (
-            !$user instanceof \App\Entity\User
-            || $user->getAccountType() !== \App\Entity\User::ACCOUNT_TYPE_COMPANY
-        ) {
-            $this->addFlash('error', 'Accès refusé : vous devez être un recruteur.');
+        if (!$user instanceof User || !$user->isCompany()) {
+            $this->addFlash('error', 'Acces refuse : vous devez etre un recruteur.');
             return $this->redirectToRoute('offer_index');
         }
 
@@ -52,12 +51,8 @@ class OfferController extends AbstractController
     public function new(Request $request, EntityManagerInterface $entityManager): Response
     {
         $user = $this->getUser();
-        if (
-            !$user instanceof \App\Entity\User
-            || $user->getAccountType() !== \App\Entity\User::ACCOUNT_TYPE_COMPANY
-            || !$user->getCompany()
-        ) {
-            $this->addFlash('error', 'Veuillez vous connecter avec un compte entreprise pour créer une offre.');
+        if (!$user instanceof User || !$user->isCompany() || !$user->getCompany()) {
+            $this->addFlash('error', 'Veuillez vous connecter avec un compte entreprise pour creer une offre.');
             return $this->redirectToRoute('home');
         }
 
@@ -83,12 +78,9 @@ class OfferController extends AbstractController
     #[Route('/{id}', name: 'offer_show', methods: ['GET'])]
     public function show(Offer $offer): Response
     {
-        if (!$this->isGranted('ROLE_ADMIN')) {
-            $user = $this->getUser();
-            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                $this->addFlash('error', 'Accès refusé : cette offre ne vous appartient pas.');
-                return $this->redirectToRoute('offer_index');
-            }
+        if (!$this->isGranted(OfferVoter::VIEW, $offer)) {
+            $this->addFlash('error', 'Acces refuse : offre non disponible.');
+            return $this->redirectToRoute('offer_index');
         }
 
         return $this->render('offer/show.html.twig', [
@@ -100,12 +92,9 @@ class OfferController extends AbstractController
     #[IsGranted('ROLE_USER')]
     public function edit(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
-        if (!$this->isGranted('ROLE_ADMIN')) {
-            $user = $this->getUser();
-            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                $this->addFlash('error', 'Accès refusé : cette offre ne vous appartient pas.');
-                return $this->redirectToRoute('offer_index');
-            }
+        if (!$this->isGranted(OfferVoter::EDIT, $offer)) {
+            $this->addFlash('error', 'Acces refuse : cette offre ne vous appartient pas.');
+            return $this->redirectToRoute('offer_index');
         }
 
         $form = $this->createForm(OfferType::class, $offer);
@@ -127,12 +116,9 @@ class OfferController extends AbstractController
     #[IsGranted('ROLE_USER')]
     public function delete(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
-        if (!$this->isGranted('ROLE_ADMIN')) {
-            $user = $this->getUser();
-            if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                $this->addFlash('error', 'Accès refusé : cette offre ne vous appartient pas.');
-                return $this->redirectToRoute('offer_index');
-            }
+        if (!$this->isGranted(OfferVoter::DELETE, $offer)) {
+            $this->addFlash('error', 'Acces refuse : cette offre ne vous appartient pas.');
+            return $this->redirectToRoute('offer_index');
         }
 
         if ($this->isCsrfTokenValid('delete_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
@@ -148,15 +134,13 @@ class OfferController extends AbstractController
     public function publish(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
         if ($this->isCsrfTokenValid('publish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
-            if (!$this->isGranted('ROLE_ADMIN')) {
-                $user = $this->getUser();
-                if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                    $this->addFlash('error', 'Seul l’auteur peut publier cette offre.');
-                    return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
-                }
+            if (!$this->isGranted(OfferVoter::PUBLISH, $offer)) {
+                $this->addFlash('error', 'Seul l\'auteur peut publier cette offre.');
+                return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
             }
 
             $offer->setStatus(Offer::STATUS_PUBLISHED);
+            $offer->setPublishedAt(new \DateTimeImmutable());
             $entityManager->flush();
         }
 
@@ -168,12 +152,9 @@ class OfferController extends AbstractController
     public function unpublish(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
         if ($this->isCsrfTokenValid('unpublish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
-            if (!$this->isGranted('ROLE_ADMIN')) {
-                $user = $this->getUser();
-                if (!$user instanceof \App\Entity\User || $offer->getAuthor()?->getId() !== $user->getId()) {
-                    $this->addFlash('error', 'Seul l’auteur peut modifier le statut de cette offre.');
-                    return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
-                }
+            if (!$this->isGranted(OfferVoter::UNPUBLISH, $offer)) {
+                $this->addFlash('error', 'Seul l\'auteur peut modifier le statut de cette offre.');
+                return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
             }
 
             $offer->setStatus(Offer::STATUS_DRAFT);

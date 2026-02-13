@@ -1,4 +1,4 @@
-﻿{% extends 'base.html.twig' %}
+{% extends 'base.html.twig' %}
 
 {% block title %}{{ offer.title }}{% endblock %}
 
@@ -6,12 +6,17 @@
     <h1>{{ offer.title }}</h1>
 
     <p><strong>Entreprise :</strong> {{ offer.company.name }}</p>
-    <p><strong>Auteur :</strong> {{ offer.author.email }}</p>
-    <p><strong>Statut :</strong> {{ offer.status }}</p>
+    <p>
+        <strong>Date de publication :</strong>
+        {{ offer.publishedAt ? offer.publishedAt|date('d/m/Y H:i') : 'Non publiee' }}
+    </p>
+    {% if app.user and offer.author and app.user.id == offer.author.id %}
+        <p><strong>Statut :</strong> {{ offer.status }}</p>
+    {% endif %}
 
     <p>{{ offer.description }}</p>
 
-    <p><strong>Catégories d’impact :</strong>
+    <p><strong>Categories d'impact :</strong>
         {% if offer.impactCategories is not empty %}
             {{ offer.impactCategories|join(', ') }}
         {% else %}
@@ -20,14 +25,16 @@
     </p>
 
     <p>
-        <a href="{{ path('offer_edit', {id: offer.id}) }}">Modifier</a>
-        |
-        <a href="{{ path('offer_index') }}">Retour à la liste</a>
+        {% if is_granted('EDIT', offer) %}
+            <a href="{{ path('offer_edit', {id: offer.id}) }}">Modifier</a>
+            |
+        {% endif %}
+        <a href="{{ path('offer_index') }}">Retour a la liste</a>
     </p>
 
     {% if is_granted('ROLE_ADMIN') %}
         <section>
-            <h2>Visibilité</h2>
+            <h2>Visibilite</h2>
             <form method="post" action="{{ path('offer_toggle_visibility', {id: offer.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('toggle_visibility_' ~ offer.id) }}">
                 <button class="btn" type="submit">
@@ -37,9 +44,9 @@
         </section>
     {% endif %}
 
-    {% if offer.status == constant('App\\Entity\\Offer::STATUS_DRAFT') %}
+    {% if offer.status == 'DRAFT' and is_granted('PUBLISH', offer) %}
         <section>
-            <h2>Publier l’offre</h2>
+            <h2>Publier l'offre</h2>
             <form method="post" action="{{ path('offer_publish', {id: offer.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('publish_offer_' ~ offer.id) }}">
                 <button class="btn" type="submit">Publier</button>
@@ -47,7 +54,7 @@
         </section>
     {% endif %}
 
-    {% if offer.status == constant('App\\Entity\\Offer::STATUS_PUBLISHED') %}
+    {% if offer.status == 'PUBLISHED' and is_granted('UNPUBLISH', offer) %}
         <section>
             <h2>Repasser en brouillon</h2>
             <form method="post" action="{{ path('offer_unpublish', {id: offer.id}) }}">
@@ -56,6 +63,4 @@
             </form>
         </section>
     {% endif %}
-
-    
 {% endblock %}
