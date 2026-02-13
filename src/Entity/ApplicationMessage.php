@@ -47,7 +47,7 @@ class ApplicationMessage
     /**
      * @var Collection<int, ApplicationAttachment>
      */
-    #[ORM\OneToMany(mappedBy: 'message', targetEntity: ApplicationAttachment::class, orphanRemoval: true)]
+    #[ORM\OneToMany(mappedBy: 'message', targetEntity: ApplicationAttachment::class, orphanRemoval: true, cascade: ['persist'])]
     private Collection $attachments;
 
     public function __construct()

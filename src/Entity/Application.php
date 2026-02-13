@@ -51,7 +51,7 @@ class Application
     /**
      * @var Collection<int, ApplicationMessage>
      */
-    #[ORM\OneToMany(mappedBy: 'application', targetEntity: ApplicationMessage::class, orphanRemoval: true)]
+    #[ORM\OneToMany(mappedBy: 'application', targetEntity: ApplicationMessage::class, orphanRemoval: true, cascade: ['persist'])]
     #[ORM\OrderBy(['createdAt' => 'ASC'])]
     private Collection $messages;
 
