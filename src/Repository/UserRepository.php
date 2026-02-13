@@ -33,6 +33,19 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
+    public function existsByEmailInsensitive(string $email): bool
+    {
+        $result = $this->createQueryBuilder('u')
+            ->select('u.id')
+            ->andWhere('LOWER(u.email) = LOWER(:email)')
+            ->setParameter('email', trim($email))
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return null !== $result;
+    }
+
     //    /**
     //     * @return User[] Returns an array of User objects
     //     */
