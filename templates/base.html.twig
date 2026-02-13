@@ -20,6 +20,10 @@
                     <a class="nav-link" href="{{ path('offer_index') }}">Offres</a>
                     {% if app.user and app.user.isCompany %}
                         <a class="nav-link" href="{{ path('recruiter_offer_index') }}">Mes offres</a>
+                        <a class="nav-link" href="{{ path('application_recruiter_index') }}">Candidatures</a>
+                    {% endif %}
+                    {% if app.user and app.user.isPerson %}
+                        <a class="nav-link" href="{{ path('application_candidate_index') }}">Mes candidatures</a>
                     {% endif %}
                     {% if app.user %}
                         <span class="nav-link">{{ app.user.email }}</span>
