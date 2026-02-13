@@ -20,4 +20,21 @@ class OfferTest extends TestCase
 
         self::assertTrue($offer->isVisible());
     }
+
+    public function testPublishedAtIsNullByDefault(): void
+    {
+        $offer = new Offer();
+
+        self::assertNull($offer->getPublishedAt());
+    }
+
+    public function testCanSetPublishedAt(): void
+    {
+        $offer = new Offer();
+        $publishedAt = new \DateTimeImmutable('2026-02-13 10:00:00');
+
+        $offer->setPublishedAt($publishedAt);
+
+        self::assertSame($publishedAt, $offer->getPublishedAt());
+    }
 }
