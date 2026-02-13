@@ -8,9 +8,11 @@ use App\Entity\User;
 use App\Form\ApplicationType;
 use App\Form\OfferType;
 use App\Repository\OfferRepository;
+use App\Repository\UserRepository;
 use App\Security\OfferVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
@@ -122,7 +124,13 @@ class OfferController extends AbstractController
     }
 
     #[Route('/{id}/apply', name: 'offer_apply', methods: ['POST'])]
-    public function apply(Request $request, Offer $offer, EntityManagerInterface $entityManager, string $cvUploadDir): Response
+    public function apply(
+        Request $request,
+        Offer $offer,
+        EntityManagerInterface $entityManager,
+        UserRepository $userRepository,
+        string $cvUploadDir,
+    ): Response
     {
         if (!$this->isGranted(OfferVoter::VIEW, $offer)) {
             $this->addFlash('error', 'Acces refuse : offre non disponible.');
@@ -155,6 +163,17 @@ class OfferController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            if (!$user instanceof User && $userRepository->existsByEmailInsensitive((string) $application->getEmail())) {
+                $form->get('email')->addError(new FormError('Cet email correspond deja a un compte existant. Veuillez vous connecter pour postuler.'));
+                $this->addFlash('error', 'Cet email correspond deja a un compte existant. Veuillez vous connecter pour postuler.');
+
+                return $this->render('offer/show.html.twig', [
+                    'offer' => $offer,
+                    'applicationForm' => $form->createView(),
+                    'canApply' => true,
+                ]);
+            }
+
             /** @var UploadedFile|null $cvFile */
             $cvFile = $form->get('cvFile')->getData();
             if ($cvFile instanceof UploadedFile) {
