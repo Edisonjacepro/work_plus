@@ -124,6 +124,10 @@ class ApplicationController extends AbstractController
                 continue;
             }
 
+            $originalName = (string) $file->getClientOriginalName();
+            $mimeType = $file->getClientMimeType();
+            $size = $file->getSize() ?? 0;
+
             $storedName = bin2hex(random_bytes(16));
             $extension = $file->guessExtension() ?: $file->getClientOriginalExtension();
             if ($extension) {
@@ -137,12 +141,17 @@ class ApplicationController extends AbstractController
                 return $this->redirectToRoute('application_show', ['id' => $application->getId()]);
             }
 
+            if ($size <= 0) {
+                $storedPath = rtrim($applicationAttachmentDir, '/\\') . DIRECTORY_SEPARATOR . $storedName;
+                $size = is_file($storedPath) ? (filesize($storedPath) ?: 0) : 0;
+            }
+
             $attachment = new ApplicationAttachment();
             $attachment->setMessage($message);
             $attachment->setStoredName($storedName);
-            $attachment->setOriginalName($file->getClientOriginalName());
-            $attachment->setMimeType($file->getClientMimeType());
-            $attachment->setSize($file->getSize() ?? 0);
+            $attachment->setOriginalName($originalName);
+            $attachment->setMimeType($mimeType);
+            $attachment->setSize((int) $size);
             $message->addAttachment($attachment);
         }
 
