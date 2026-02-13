@@ -2,13 +2,17 @@
 
 namespace App\Controller;
 
+use App\Entity\Application;
 use App\Entity\Offer;
 use App\Entity\User;
+use App\Form\ApplicationType;
 use App\Form\OfferType;
 use App\Repository\OfferRepository;
 use App\Security\OfferVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -83,8 +87,103 @@ class OfferController extends AbstractController
             return $this->redirectToRoute('offer_index');
         }
 
+        $user = $this->getUser();
+        $canApply = !$user instanceof User || $user->isPerson();
+        $applicationForm = null;
+
+        if ($canApply) {
+            $application = new Application();
+            $application->setOffer($offer);
+
+            if ($user instanceof User) {
+                $application->setCandidate($user);
+                if (null !== $user->getEmail()) {
+                    $application->setEmail($user->getEmail());
+                }
+                if (null !== $user->getFirstName()) {
+                    $application->setFirstName($user->getFirstName());
+                }
+                if (null !== $user->getLastName()) {
+                    $application->setLastName($user->getLastName());
+                }
+            }
+
+            $applicationForm = $this->createForm(ApplicationType::class, $application, [
+                'action' => $this->generateUrl('offer_apply', ['id' => $offer->getId()]),
+                'method' => 'POST',
+            ])->createView();
+        }
+
         return $this->render('offer/show.html.twig', [
             'offer' => $offer,
+            'applicationForm' => $applicationForm,
+            'canApply' => $canApply,
+        ]);
+    }
+
+    #[Route('/{id}/apply', name: 'offer_apply', methods: ['POST'])]
+    public function apply(Request $request, Offer $offer, EntityManagerInterface $entityManager, string $cvUploadDir): Response
+    {
+        if (!$this->isGranted(OfferVoter::VIEW, $offer)) {
+            $this->addFlash('error', 'Acces refuse : offre non disponible.');
+            return $this->redirectToRoute('offer_index');
+        }
+
+        $user = $this->getUser();
+        if ($user instanceof User && !$user->isPerson()) {
+            $this->addFlash('error', 'Seul un candidat peut postuler a cette offre.');
+            return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+        }
+
+        $application = new Application();
+        $application->setOffer($offer);
+
+        if ($user instanceof User && $user->isPerson()) {
+            $application->setCandidate($user);
+            if (null !== $user->getEmail()) {
+                $application->setEmail($user->getEmail());
+            }
+            if (null !== $user->getFirstName()) {
+                $application->setFirstName($user->getFirstName());
+            }
+            if (null !== $user->getLastName()) {
+                $application->setLastName($user->getLastName());
+            }
+        }
+
+        $form = $this->createForm(ApplicationType::class, $application);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            /** @var UploadedFile|null $cvFile */
+            $cvFile = $form->get('cvFile')->getData();
+            if ($cvFile instanceof UploadedFile) {
+                $safeFileName = bin2hex(random_bytes(12));
+                $extension = $cvFile->guessExtension() ?: $cvFile->getClientOriginalExtension();
+                $fileName = $safeFileName . ($extension ? '.' . strtolower($extension) : '');
+
+                try {
+                    $cvFile->move($cvUploadDir, $fileName);
+                    $application->setCvFilePath('uploads/cv/' . $fileName);
+                } catch (FileException) {
+                    $this->addFlash('error', 'Impossible de televerser votre CV. Veuillez reessayer.');
+                    return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+                }
+            }
+
+            $entityManager->persist($application);
+            $entityManager->flush();
+
+            $this->addFlash('success', 'Votre candidature a ete envoyee.');
+            return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
+        }
+
+        $this->addFlash('error', 'Le formulaire de candidature est invalide.');
+
+        return $this->render('offer/show.html.twig', [
+            'offer' => $offer,
+            'applicationForm' => $form->createView(),
+            'canApply' => true,
         ]);
     }
 

@@ -63,4 +63,18 @@
             </form>
         </section>
     {% endif %}
+
+    {% if canApply and applicationForm %}
+        <section>
+            <h2>Postuler a cette offre</h2>
+            {{ form_start(applicationForm) }}
+                {{ form_row(applicationForm.email) }}
+                {{ form_row(applicationForm.firstName) }}
+                {{ form_row(applicationForm.lastName) }}
+                {{ form_row(applicationForm.message) }}
+                {{ form_row(applicationForm.cvFile) }}
+                <button class="btn" type="submit">Envoyer ma candidature</button>
+            {{ form_end(applicationForm) }}
+        </section>
+    {% endif %}
 {% endblock %}
