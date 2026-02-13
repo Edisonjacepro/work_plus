@@ -6,6 +6,7 @@
 parameters:
     app.cv_upload_dir: '%kernel.project_dir%/public/uploads/cv'
     app.application_attachment_dir: '%kernel.project_dir%/var/uploads/applications'
+    app.mailer_from: 'no-reply@workplus.local'
 
 services:
     # default configuration for services in *this* file
@@ -15,6 +16,7 @@ services:
         bind:
             string $cvUploadDir: '%app.cv_upload_dir%'
             string $applicationAttachmentDir: '%app.application_attachment_dir%'
+            string $mailerFrom: '%app.mailer_from%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
