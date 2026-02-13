@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mes candidatures{% endblock %}
+
+{% block body %}
+    <h1>Mes candidatures</h1>
+
+    {% if applications is empty %}
+        <p>Vous n'avez pas encore postule.</p>
+    {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Offre</th>
+                    <th>Entreprise</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for application in applications %}
+                    <tr>
+                        <td>{{ application.offer.title }}</td>
+                        <td>{{ application.offer.company.name }}</td>
+                        <td>{{ application.createdAt ? application.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                        <td><a href="{{ path('application_show', {id: application.id}) }}">Consulter</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}

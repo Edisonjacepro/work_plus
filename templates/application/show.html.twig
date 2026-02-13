@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Candidature #{{ application.id }}{% endblock %}
+
+{% block body %}
+    <h1>Candidature pour {{ application.offer.title }}</h1>
+
+    <p><strong>Candidat :</strong> {{ application.firstName }} {{ application.lastName }}</p>
+    <p><strong>Email :</strong> {{ application.email }}</p>
+    <p><strong>Date :</strong> {{ application.createdAt ? application.createdAt|date('d/m/Y H:i') : '-' }}</p>
+
+    <section>
+        <h2>Message initial</h2>
+        <p>{{ application.message|nl2br }}</p>
+        {% if application.cvFilePath %}
+            <p><a href="{{ asset(application.cvFilePath) }}" target="_blank" rel="noopener">Consulter le CV</a></p>
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>Echanges</h2>
+        {% if application.messages is empty %}
+            <p>Aucune reponse pour le moment.</p>
+        {% else %}
+            {% for message in application.messages %}
+                <article class="card" style="margin-bottom: 1rem;">
+                    <p>
+                        <strong>
+                            {% if message.authorType == 'RECRUITER' %}
+                                Recruteur
+                            {% elseif message.authorType == 'CANDIDATE' %}
+                                Candidat
+                            {% else %}
+                                Systeme
+                            {% endif %}
+                        </strong>
+                        - {{ message.createdAt ? message.createdAt|date('d/m/Y H:i') : '-' }}
+                    </p>
+                    <p>{{ message.body|nl2br }}</p>
+                    {% if message.attachments is not empty %}
+                        <ul>
+                            {% for attachment in message.attachments %}
+                                <li>
+                                    <a href="{{ path('application_attachment_download', {id: attachment.id}) }}">{{ attachment.originalName }}</a>
+                                    ({{ (attachment.size / 1024)|round(1) }} Ko)
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </article>
+            {% endfor %}
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>Repondre</h2>
+        {{ form_start(messageForm) }}
+            {{ form_row(messageForm.body) }}
+            {{ form_row(messageForm.attachments) }}
+            <button class="btn" type="submit">Envoyer</button>
+        {{ form_end(messageForm) }}
+    </section>
+{% endblock %}

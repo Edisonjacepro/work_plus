@@ -1,0 +1,34 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Candidatures recues{% endblock %}
+
+{% block body %}
+    <h1>Candidatures recues</h1>
+
+    {% if applications is empty %}
+        <p>Aucune candidature pour le moment.</p>
+    {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Offre</th>
+                    <th>Candidat</th>
+                    <th>Email</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for application in applications %}
+                    <tr>
+                        <td>{{ application.offer.title }}</td>
+                        <td>{{ application.firstName }} {{ application.lastName }}</td>
+                        <td>{{ application.email }}</td>
+                        <td>{{ application.createdAt ? application.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                        <td><a href="{{ path('application_show', {id: application.id}) }}">Consulter</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}
