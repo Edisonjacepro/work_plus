@@ -5,7 +5,9 @@
 {% block body %}
     <h1>Offres</h1>
 
-    <p><a href="{{ path('offer_new') }}">Créer une offre</a></p>
+    {% if app.user and app.user.isCompany %}
+        <p><a href="{{ path('offer_new') }}">Creer une offre</a></p>
+    {% endif %}
 
     {% if offers is empty %}
         <p>Aucune offre.</p>
@@ -14,7 +16,7 @@
             {% for offer in offers %}
                 <li>
                     <a href="{{ path('offer_show', {id: offer.id}) }}">{{ offer.title }}</a>
-                    — {{ offer.company.name }}
+                    - {{ offer.company.name }}
                 </li>
             {% endfor %}
         </ul>
