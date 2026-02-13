@@ -16,10 +16,11 @@
                     <a href="{{ path('offer_show', {id: offer.id}) }}">{{ offer.title }}</a>
                     — {{ offer.company.name }}
                     <span class="status-badge status-{{ offer.status|lower }}">
-                        {{ offer.status == constant('App\\\\Entity\\\\Offer::STATUS_PUBLISHED') ? 'Publié' : 'Brouillon' }}
+                        {{ offer.status == 'PUBLISHED' ? 'Publié' : 'Brouillon' }}
                     </span>
                 </li>
             {% endfor %}
         </ul>
     {% endif %}
 {% endblock %}
+
