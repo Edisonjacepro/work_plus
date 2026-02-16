@@ -10,6 +10,7 @@ use App\Form\ApplicationMessageType;
 use App\Repository\ApplicationRepository;
 use App\Security\ApplicationVoter;
 use App\Service\ApplicationMessageNotifier;
+use App\Service\CandidatePointsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -44,7 +45,10 @@ class ApplicationController extends AbstractController
     }
 
     #[Route('/me', name: 'application_candidate_index', methods: ['GET'])]
-    public function candidateIndex(ApplicationRepository $applicationRepository): Response
+    public function candidateIndex(
+        ApplicationRepository $applicationRepository,
+        CandidatePointsService $candidatePointsService
+    ): Response
     {
         $user = $this->getUser();
         if (!$user instanceof User || !$user->isPerson()) {
@@ -52,8 +56,13 @@ class ApplicationController extends AbstractController
             return $this->redirectToRoute('home');
         }
 
+        $summary = $candidatePointsService->getCandidateSummary($user);
+
         return $this->render('application/candidate_index.html.twig', [
             'applications' => $applicationRepository->findForCandidate($user),
+            'candidatePointsBalance' => $summary['balance'],
+            'candidatePointsLevel' => $summary['level'],
+            'candidatePointsHistory' => $summary['history'],
         ]);
     }
 

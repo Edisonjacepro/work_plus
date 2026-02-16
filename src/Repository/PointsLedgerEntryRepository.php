@@ -39,4 +39,30 @@ class PointsLedgerEntryRepository extends ServiceEntityRepository
 
         return (int) $balance;
     }
+
+    public function getUserBalance(int $userId): int
+    {
+        $balance = $this->createQueryBuilder('l')
+            ->select('COALESCE(SUM(l.points), 0)')
+            ->andWhere('l.user = :userId')
+            ->setParameter('userId', $userId)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $balance;
+    }
+
+    /**
+     * @return list<PointsLedgerEntry>
+     */
+    public function findLatestForUser(int $userId, int $limit = 20): array
+    {
+        return $this->createQueryBuilder('l')
+            ->andWhere('l.user = :userId')
+            ->setParameter('userId', $userId)
+            ->orderBy('l.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
 }

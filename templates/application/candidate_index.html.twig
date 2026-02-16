@@ -5,6 +5,12 @@
 {% block body %}
     <h1>Mes candidatures</h1>
 
+    <section>
+        <h2>Mon impact candidat</h2>
+        <p><strong>Points cumulés :</strong> {{ candidatePointsBalance }}</p>
+        <p><strong>Niveau :</strong> {{ candidatePointsLevel }}</p>
+    </section>
+
     {% if applications is empty %}
         <p>Vous n'avez pas encore postule.</p>
     {% else %}
@@ -29,4 +35,32 @@
             </tbody>
         </table>
     {% endif %}
+
+    <section>
+        <h2>Historique des points</h2>
+        {% if candidatePointsHistory is empty %}
+            <p>Aucun evenement de points pour le moment.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Motif</th>
+                        <th>Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in candidatePointsHistory %}
+                        <tr>
+                            <td>{{ entry.createdAt ? entry.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                            <td>{{ entry.referenceType }}</td>
+                            <td>{{ entry.reason }}</td>
+                            <td>{{ entry.points > 0 ? '+' ~ entry.points : entry.points }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
 {% endblock %}
