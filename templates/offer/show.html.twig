@@ -24,6 +24,24 @@
         {% endif %}
     </p>
 
+    <section>
+        <h2>Score d impact automatique</h2>
+        {% if impactScore is defined and impactScore %}
+            <p>
+                <strong>{{ isImpactScorePreview ? 'Score previsionnel' : 'Score valide' }} :</strong> {{ impactScore.totalScore }}/100
+                (confiance {{ (impactScore.confidence * 100)|round }}%)
+            </p>
+            <p>
+                Societe: {{ impactScore.societyScore }}/100 |
+                Biodiversite: {{ impactScore.biodiversityScore }}/100 |
+                GES: {{ impactScore.ghgScore }}/100
+            </p>
+            <p><small>Regle: {{ impactScore.ruleVersion }}</small></p>
+        {% else %}
+            <p><em>Le score sera calcule automatiquement a la publication.</em></p>
+        {% endif %}
+    </section>
+
     <p>
         {% if is_granted('EDIT', offer) %}
             <a href="{{ path('offer_edit', {id: offer.id}) }}">Modifier</a>

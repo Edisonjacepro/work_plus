@@ -4,9 +4,8 @@ namespace App\Controller;
 
 use App\Entity\Company;
 use App\Repository\CompanyRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Service\PointsLedgerService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -22,10 +21,11 @@ class CompanyController extends AbstractController
     }
 
     #[Route('/{id}', name: 'company_show', methods: ['GET'])]
-    public function show(Company $company): Response
+    public function show(Company $company, PointsLedgerService $pointsLedgerService): Response
     {
         return $this->render('company/show.html.twig', [
             'company' => $company,
+            'impactPointsBalance' => $pointsLedgerService->getCompanyBalance($company),
         ]);
     }
 }

@@ -13,8 +13,10 @@ class OfferType extends AbstractType
 {
     private const IMPACT_CATEGORY_CHOICES = [
         'Climat' => 'climat',
-        'Biodiversité' => 'biodiversite',
-        'Pauvreté' => 'pauvrete',
+        'Biodiversite' => 'biodiversite',
+        'Baisse des emissions GES' => 'ges',
+        'Societe et inclusion' => 'societe',
+        'Pauvrete' => 'pauvrete',
         'Paix' => 'paix',
     ];
 
@@ -27,7 +29,7 @@ class OfferType extends AbstractType
                 'choices' => self::IMPACT_CATEGORY_CHOICES,
                 'multiple' => true,
                 'expanded' => true,
-                'label' => 'Catégories d’impact',
+                'label' => 'Categories d impact',
             ]);
     }
 
