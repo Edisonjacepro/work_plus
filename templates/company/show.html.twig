@@ -9,6 +9,17 @@
         <h2>Informations</h2>
         <p><strong>Nom :</strong> {{ company.name }}</p>
         <p><strong>Description :</strong> {{ company.description ?: '-' }}</p>
+        <p>
+            <strong>Site web :</strong>
+            {% if company.website %}
+                <a href="{{ company.website }}" target="_blank" rel="noopener noreferrer">{{ company.website }}</a>
+            {% else %}
+                -
+            {% endif %}
+        </p>
+        <p><strong>Ville :</strong> {{ company.city ?: '-' }}</p>
+        <p><strong>Secteur :</strong> {{ company.sector ?: '-' }}</p>
+        <p><strong>Taille :</strong> {{ company.companySize ?: '-' }}</p>
         <p><strong>Date creation :</strong> {{ company.createdAt ? company.createdAt|date('d/m/Y H:i') : '-' }}</p>
         <p><strong>Derniere mise a jour :</strong> {{ company.updatedAt ? company.updatedAt|date('d/m/Y H:i') : '-' }}</p>
     </section>

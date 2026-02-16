@@ -26,6 +26,18 @@ class Company
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $description = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $website = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $city = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $sector = null;
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $companySize = null;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -75,6 +87,54 @@ class Company
     public function setDescription(?string $description): static
     {
         $this->description = $description;
+
+        return $this;
+    }
+
+    public function getWebsite(): ?string
+    {
+        return $this->website;
+    }
+
+    public function setWebsite(?string $website): static
+    {
+        $this->website = $website;
+
+        return $this;
+    }
+
+    public function getCity(): ?string
+    {
+        return $this->city;
+    }
+
+    public function setCity(?string $city): static
+    {
+        $this->city = $city;
+
+        return $this;
+    }
+
+    public function getSector(): ?string
+    {
+        return $this->sector;
+    }
+
+    public function setSector(?string $sector): static
+    {
+        $this->sector = $sector;
+
+        return $this;
+    }
+
+    public function getCompanySize(): ?string
+    {
+        return $this->companySize;
+    }
+
+    public function setCompanySize(?string $companySize): static
+    {
+        $this->companySize = $companySize;
 
         return $this;
     }

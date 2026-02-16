@@ -18,4 +18,23 @@ class CompanyTest extends TestCase
         self::assertSame($company, $offer->getCompany());
         self::assertCount(1, $company->getOffers());
     }
+
+    public function testCompanyProfileFieldsCanBeSet(): void
+    {
+        $company = new Company();
+        $company
+            ->setName('Work Plus')
+            ->setDescription('Entreprise orientee impact')
+            ->setWebsite('https://workplus.example')
+            ->setCity('Paris')
+            ->setSector('Economie sociale')
+            ->setCompanySize('11-50');
+
+        self::assertSame('Work Plus', $company->getName());
+        self::assertSame('Entreprise orientee impact', $company->getDescription());
+        self::assertSame('https://workplus.example', $company->getWebsite());
+        self::assertSame('Paris', $company->getCity());
+        self::assertSame('Economie sociale', $company->getSector());
+        self::assertSame('11-50', $company->getCompanySize());
+    }
 }
