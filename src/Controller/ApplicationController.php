@@ -60,6 +60,7 @@ class ApplicationController extends AbstractController
 
         return $this->render('application/candidate_index.html.twig', [
             'applications' => $applicationRepository->findForCandidate($user),
+            'candidate' => $user,
             'candidatePointsBalance' => $summary['balance'],
             'candidatePointsLevel' => $summary['level'],
             'candidatePointsHistory' => $summary['history'],
