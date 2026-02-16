@@ -14,3 +14,29 @@
         {{ form_end(form) }}
     </section>
 {% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const existingCompanyField = document.getElementById('{{ form.existingCompany.vars.id }}');
+            const companyNameField = document.getElementById('{{ form.companyName.vars.id }}');
+
+            if (!existingCompanyField || !companyNameField) {
+                return;
+            }
+
+            const syncCompanyNameState = function () {
+                const hasSelection = existingCompanyField.value !== '';
+                companyNameField.disabled = hasSelection;
+
+                if (hasSelection) {
+                    companyNameField.value = '';
+                }
+            };
+
+            existingCompanyField.addEventListener('change', syncCompanyNameState);
+            syncCompanyNameState();
+        });
+    </script>
+{% endblock %}
