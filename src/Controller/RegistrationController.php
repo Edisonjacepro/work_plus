@@ -7,7 +7,7 @@ use App\Entity\User;
 use App\Form\RegistrationCompanyType;
 use App\Form\RegistrationPersonType;
 use App\Repository\CompanyRepository;
-use App\Service\CompanyRegistrationSelectionValidator;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -24,7 +24,7 @@ class RegistrationController extends AbstractController
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         CompanyRepository $companyRepository,
-        CompanyRegistrationSelectionValidator $selectionValidator
+        UserRepository $userRepository
     ): Response {
         if ($this->getUser()) {
             return $this->redirectToRoute('home');
@@ -35,27 +35,34 @@ class RegistrationController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $data = $form->getData();
-            $existingCompany = $data['existingCompany'] ?? null;
             $companyName = trim((string) ($data['companyName'] ?? ''));
+            $email = trim((string) ($data['email'] ?? ''));
+            $hasBlockingError = false;
 
-            $selectionError = $selectionValidator->validate($existingCompany, $companyName);
+            if ($companyRepository->findOneBy(['name' => $companyName]) instanceof Company) {
+                $message = 'Le nom de cette entreprise est deja utilise.';
+                $form->get('companyName')->addError(new FormError($message));
+                $hasBlockingError = true;
+            }
 
-            if (null !== $selectionError) {
-                $form->addError(new FormError($selectionError));
-            } else {
-                $company = $existingCompany;
+            if ($userRepository->existsByEmailInsensitive($email)) {
+                $message = 'Cet email est deja utilise.';
+                $form->get('email')->addError(new FormError($message));
+                $hasBlockingError = true;
+            }
 
-                if (!$company) {
-                    $company = $companyRepository->findOneBy(['name' => $companyName]);
-                }
-
-                if (!$company) {
-                    $company = new Company();
-                    $company->setName($companyName);
-                }
+            if (!$hasBlockingError) {
+                $company = new Company();
+                $company
+                    ->setName($companyName)
+                    ->setDescription(self::nullableTrim($data['description'] ?? null))
+                    ->setWebsite(self::nullableTrim($data['website'] ?? null))
+                    ->setCity(self::nullableTrim($data['city'] ?? null))
+                    ->setSector(self::nullableTrim($data['sector'] ?? null))
+                    ->setCompanySize(self::nullableTrim($data['companySize'] ?? null));
 
                 $user = new User();
-                $user->setEmail($data['email']);
+                $user->setEmail($email);
                 $user->setAccountType(User::ACCOUNT_TYPE_COMPANY);
                 $user->setCompany($company);
                 $user->setPassword($passwordHasher->hashPassword($user, (string) $data['plainPassword']));
@@ -65,11 +72,10 @@ class RegistrationController extends AbstractController
                     $entityManager->persist($user);
                     $entityManager->flush();
 
-                    $this->addFlash('success', 'Compte entreprise créé. Veuillez vous connecter.');
+                    $this->addFlash('success', 'Compte entreprise cree. Veuillez vous connecter.');
                     return $this->redirectToRoute('app_login');
                 } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
-                    $form->addError(new FormError('Cet email est déjà utilisé.'));
-                    $this->addFlash('error', 'Cet email est déjà utilisé.');
+                    $form->addError(new FormError('Des donnees existent deja. Verifiez le nom de l\'entreprise et l\'email.'));
                 }
             }
         }
@@ -77,6 +83,16 @@ class RegistrationController extends AbstractController
         return $this->render('registration/company.html.twig', [
             'form' => $form,
         ]);
+    }
+
+    private static function nullableTrim(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+        return '' === $trimmed ? null : $trimmed;
     }
 
     #[Route('/register/person', name: 'app_register_person')]
@@ -106,11 +122,11 @@ class RegistrationController extends AbstractController
                 $entityManager->persist($user);
                 $entityManager->flush();
 
-                $this->addFlash('success', 'Compte candidat créé. Veuillez vous connecter.');
+                $this->addFlash('success', 'Compte candidat cree. Veuillez vous connecter.');
                 return $this->redirectToRoute('app_login');
             } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
-                $form->addError(new FormError('Cet email est déjà utilisé.'));
-                $this->addFlash('error', 'Cet email est déjà utilisé.');
+                $form->addError(new FormError('Cet email est deja utilise.'));
+                $this->addFlash('error', 'Cet email est deja utilise.');
             }
         }
 

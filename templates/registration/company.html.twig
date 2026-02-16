@@ -4,39 +4,18 @@
 
 {% block body %}
     <section>
-        <h1>Créer un compte entreprise</h1>
+        <h1>Creer un compte entreprise</h1>
         {{ form_start(form) }}
             {{ form_row(form.email) }}
             {{ form_row(form.plainPassword) }}
-            {{ form_row(form.existingCompany) }}
             {{ form_row(form.companyName) }}
-            <button class="btn">Créer le compte</button>
+            {{ form_row(form.description) }}
+            {{ form_row(form.website) }}
+            {{ form_row(form.city) }}
+            {{ form_row(form.sector) }}
+            {{ form_row(form.companySize) }}
+            <button class="btn">Creer le compte</button>
         {{ form_end(form) }}
     </section>
 {% endblock %}
 
-{% block javascripts %}
-    {{ parent() }}
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const existingCompanyField = document.getElementById('{{ form.existingCompany.vars.id }}');
-            const companyNameField = document.getElementById('{{ form.companyName.vars.id }}');
-
-            if (!existingCompanyField || !companyNameField) {
-                return;
-            }
-
-            const syncCompanyNameState = function () {
-                const hasSelection = existingCompanyField.value !== '';
-                companyNameField.disabled = hasSelection;
-
-                if (hasSelection) {
-                    companyNameField.value = '';
-                }
-            };
-
-            existingCompanyField.addEventListener('change', syncCompanyNameState);
-            syncCompanyNameState();
-        });
-    </script>
-{% endblock %}
