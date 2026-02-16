@@ -40,6 +40,20 @@ class PointsLedgerEntryRepository extends ServiceEntityRepository
         return (int) $balance;
     }
 
+    /**
+     * @return list<PointsLedgerEntry>
+     */
+    public function findLatestForCompany(int $companyId, int $limit = 20): array
+    {
+        return $this->createQueryBuilder('l')
+            ->andWhere('l.company = :companyId')
+            ->setParameter('companyId', $companyId)
+            ->orderBy('l.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
     public function getUserBalance(int $userId): int
     {
         $balance = $this->createQueryBuilder('l')

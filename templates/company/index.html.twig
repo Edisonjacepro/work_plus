@@ -5,6 +5,14 @@
 {% block body %}
     <h1>Entreprises</h1>
 
+    {% if app.user and app.user.isCompany %}
+        {% if app.user.company %}
+            <p><a href="{{ path('company_show', {id: app.user.company.id}) }}">Voir ma fiche entreprise</a></p>
+        {% else %}
+            <p><a href="{{ path('company_new') }}">Creer mon entreprise</a></p>
+        {% endif %}
+    {% endif %}
+
     {% if companies is empty %}
         <p>Aucune entreprise.</p>
     {% else %}
@@ -12,6 +20,9 @@
             {% for company in companies %}
                 <li>
                     <a href="{{ path('company_show', {id: company.id}) }}">{{ company.name }}</a>
+                    {% if is_granted('EDIT', company) %}
+                        - <a href="{{ path('company_edit', {id: company.id}) }}">Modifier</a>
+                    {% endif %}
                 </li>
             {% endfor %}
         </ul>

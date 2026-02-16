@@ -3,17 +3,70 @@
 {% block title %}{{ company.name }}{% endblock %}
 
 {% block body %}
-    <h1>{{ company.name }}</h1>
+    <h1>Fiche entreprise</h1>
 
-    <p><strong>Points d impact :</strong> {{ impactPointsBalance }}</p>
+    <section>
+        <h2>Informations</h2>
+        <p><strong>Nom :</strong> {{ company.name }}</p>
+        <p><strong>Description :</strong> {{ company.description ?: '-' }}</p>
+        <p><strong>Date creation :</strong> {{ company.createdAt ? company.createdAt|date('d/m/Y H:i') : '-' }}</p>
+        <p><strong>Derniere mise a jour :</strong> {{ company.updatedAt ? company.updatedAt|date('d/m/Y H:i') : '-' }}</p>
+    </section>
 
-    {% if company.description %}
-        <p>{{ company.description }}</p>
-    {% else %}
-        <p><em>Aucune description.</em></p>
-    {% endif %}
+    <section>
+        <h2>Points impact entreprise</h2>
+        <p><strong>Total cumule :</strong> {{ impactPointsBalance }}</p>
+
+        <h3>Detail des points</h3>
+        {% if companyPointsHistory is empty %}
+            <p>Aucun evenement de points pour le moment.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Reference</th>
+                        <th>Motif</th>
+                        <th>Points</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in companyPointsHistory %}
+                        <tr>
+                            <td>{{ entry.createdAt ? entry.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                            <td>{{ entry.referenceType }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
+                            <td>{{ entry.reason }}</td>
+                            <td>{{ entry.points > 0 ? '+' ~ entry.points : entry.points }}</td>
+                            <td>
+                                {% if entry.metadata and entry.metadata.impactScore is defined %}
+                                    score {{ entry.metadata.impactScore }} / confiance {{ entry.metadata.confidence is defined ? (entry.metadata.confidence * 100)|round ~ '%' : '-' }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
 
     <p>
+        {% if is_granted('EDIT', company) %}
+            <a href="{{ path('company_edit', {id: company.id}) }}">Modifier la fiche</a>
+            |
+        {% endif %}
         <a href="{{ path('company_index') }}">Retour a la liste</a>
     </p>
+
+    {% if is_granted('DELETE', company) %}
+        <section>
+            <h2>Suppression</h2>
+            <form method="post" action="{{ path('company_delete', {id: company.id}) }}" onsubmit="return confirm('Supprimer cette entreprise ?');">
+                <input type="hidden" name="_token" value="{{ csrf_token('delete_company_' ~ company.id) }}">
+                <button class="btn" type="submit">Supprimer cette entreprise</button>
+            </form>
+        </section>
+    {% endif %}
 {% endblock %}
