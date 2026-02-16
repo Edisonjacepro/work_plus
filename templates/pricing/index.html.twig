@@ -1,0 +1,34 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Tarifs{% endblock %}
+
+{% block body %}
+    <section>
+        <h1>Tarifs Work+</h1>
+        <p>
+            Trois formules simples pour les recruteurs, avec un positionnement prix volontairement accessible.
+            Les fonctionnalites "Nouveau" sont planifiees pour les prochaines iterations.
+        </p>
+    </section>
+
+    <section class="pricing-grid">
+        {% for plan in plans %}
+            <article class="pricing-card{{ plan.highlight ? ' pricing-card-highlight' : '' }}">
+                <h2>{{ plan.name }}</h2>
+                <p class="pricing-price">{{ plan.price }}</p>
+                <p>{{ plan.subtitle }}</p>
+
+                <ul class="pricing-feature-list">
+                    {% for feature in plan.features %}
+                        <li class="pricing-feature{{ feature.available ? ' pricing-feature-available' : ' pricing-feature-future' }}">
+                            <strong>[{{ feature.type }}]</strong> {{ feature.label }}
+                        </li>
+                    {% endfor %}
+                </ul>
+
+                <a class="btn" href="{{ path(plan.ctaRoute) }}">{{ plan.ctaLabel }}</a>
+            </article>
+        {% endfor %}
+    </section>
+
+{% endblock %}

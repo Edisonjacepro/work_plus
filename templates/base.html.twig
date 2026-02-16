@@ -18,6 +18,7 @@
                 <nav class="nav">
                     <a class="nav-link" href="{{ path('company_index') }}">Entreprises</a>
                     <a class="nav-link" href="{{ path('offer_index') }}">Offres</a>
+                    <a class="nav-link" href="{{ path('pricing_index') }}">Tarifs</a>
                     {% if app.user and app.user.isCompany %}
                         {% if app.user.company %}
                             <a class="nav-link" href="{{ path('company_show', {id: app.user.company.id}) }}">Mon entreprise</a>
