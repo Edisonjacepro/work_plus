@@ -10,6 +10,7 @@ use App\Form\OfferType;
 use App\Repository\OfferRepository;
 use App\Repository\UserRepository;
 use App\Security\OfferVoter;
+use App\Service\CandidatePointsService;
 use App\Service\ImpactScoreService;
 use App\Service\OfferImpactScoreResolver;
 use App\Service\PointsLedgerService;
@@ -136,6 +137,7 @@ class OfferController extends AbstractController
         Offer $offer,
         EntityManagerInterface $entityManager,
         UserRepository $userRepository,
+        CandidatePointsService $candidatePointsService,
         string $cvUploadDir,
     ): Response
     {
@@ -200,7 +202,14 @@ class OfferController extends AbstractController
             $entityManager->persist($application);
             $entityManager->flush();
 
-            $this->addFlash('success', 'Votre candidature a ete envoyee.');
+            $candidatePointsEntry = $candidatePointsService->awardApplicationSubmissionPoints($application);
+            if (null !== $candidatePointsEntry) {
+                $entityManager->flush();
+                $this->addFlash('success', sprintf('Votre candidature a ete envoyee. +%d points candidat.', $candidatePointsEntry->getPoints()));
+            } else {
+                $this->addFlash('success', 'Votre candidature a ete envoyee.');
+            }
+
             return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
         }
 

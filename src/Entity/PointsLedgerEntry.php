@@ -17,6 +17,7 @@ class PointsLedgerEntry
     public const TYPE_ADJUSTMENT = 'ADJUSTMENT';
 
     public const REFERENCE_OFFER_PUBLICATION = 'OFFER_PUBLICATION';
+    public const REFERENCE_APPLICATION_SUBMISSION = 'APPLICATION_SUBMISSION';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
