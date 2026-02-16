@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Form\RegistrationCompanyType;
 use App\Form\RegistrationPersonType;
 use App\Repository\CompanyRepository;
+use App\Service\CompanyRegistrationSelectionValidator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -22,7 +23,8 @@ class RegistrationController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
-        CompanyRepository $companyRepository
+        CompanyRepository $companyRepository,
+        CompanyRegistrationSelectionValidator $selectionValidator
     ): Response {
         if ($this->getUser()) {
             return $this->redirectToRoute('home');
@@ -36,8 +38,10 @@ class RegistrationController extends AbstractController
             $existingCompany = $data['existingCompany'] ?? null;
             $companyName = trim((string) ($data['companyName'] ?? ''));
 
-            if (!$existingCompany && $companyName === '') {
-                $form->addError(new FormError('Veuillez sélectionner une entreprise existante ou en créer une nouvelle.'));
+            $selectionError = $selectionValidator->validate($existingCompany, $companyName);
+
+            if (null !== $selectionError) {
+                $form->addError(new FormError($selectionError));
             } else {
                 $company = $existingCompany;
 
