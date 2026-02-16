@@ -69,6 +69,25 @@ class PointsLedgerService
         return $this->pointsLedgerEntryRepository->getCompanyBalance($companyId);
     }
 
+    /**
+     * @return array{balance: int, history: list<PointsLedgerEntry>}
+     */
+    public function getCompanySummary(Company $company, int $historyLimit = 20): array
+    {
+        $companyId = $company->getId();
+        if (null === $companyId) {
+            return [
+                'balance' => 0,
+                'history' => [],
+            ];
+        }
+
+        return [
+            'balance' => $this->pointsLedgerEntryRepository->getCompanyBalance($companyId),
+            'history' => $this->pointsLedgerEntryRepository->findLatestForCompany($companyId, $historyLimit),
+        ];
+    }
+
     private function computePublicationPoints(ImpactScore $impactScore): int
     {
         $points = $impactScore->getTotalScore();

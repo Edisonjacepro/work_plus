@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ pageTitle }}{% endblock %}
+
+{% block body %}
+    <h1>{{ pageTitle }}</h1>
+
+    {{ form_start(form) }}
+        {{ form_row(form.name) }}
+        {{ form_row(form.description) }}
+        <button class="btn" type="submit">{{ submitLabel }}</button>
+    {{ form_end(form) }}
+
+    <p>
+        <a href="{{ path('company_index') }}">Retour a la liste</a>
+    </p>
+{% endblock %}

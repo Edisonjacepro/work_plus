@@ -95,6 +95,38 @@ class PointsLedgerServiceTest extends TestCase
         self::assertSame(123, $service->getCompanyBalance($company));
     }
 
+    public function testGetCompanySummaryReturnsBalanceAndHistory(): void
+    {
+        $repository = $this->createMock(PointsLedgerEntryRepository::class);
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $service = new PointsLedgerService($repository, $entityManager);
+
+        $company = (new Company())->setName('Work Plus');
+        $this->setEntityId($company, 7);
+
+        $historyEntry = (new PointsLedgerEntry())
+            ->setEntryType(PointsLedgerEntry::TYPE_CREDIT)
+            ->setReferenceType(PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION)
+            ->setReason('Automatic impact points for offer publication')
+            ->setPoints(40);
+
+        $repository->expects(self::once())
+            ->method('getCompanyBalance')
+            ->with(7)
+            ->willReturn(250);
+
+        $repository->expects(self::once())
+            ->method('findLatestForCompany')
+            ->with(7, 20)
+            ->willReturn([$historyEntry]);
+
+        $summary = $service->getCompanySummary($company);
+
+        self::assertSame(250, $summary['balance']);
+        self::assertCount(1, $summary['history']);
+        self::assertSame($historyEntry, $summary['history'][0]);
+    }
+
     private function buildOfferWithId(int $id): Offer
     {
         $company = (new Company())->setName('Work Plus');
