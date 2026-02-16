@@ -10,6 +10,9 @@ use App\Form\OfferType;
 use App\Repository\OfferRepository;
 use App\Repository\UserRepository;
 use App\Security\OfferVoter;
+use App\Service\ImpactScoreService;
+use App\Service\OfferImpactScoreResolver;
+use App\Service\PointsLedgerService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -82,7 +85,7 @@ class OfferController extends AbstractController
     }
 
     #[Route('/{id}', name: 'offer_show', methods: ['GET'])]
-    public function show(Offer $offer): Response
+    public function show(Offer $offer, OfferImpactScoreResolver $offerImpactScoreResolver): Response
     {
         if (!$this->isGranted(OfferVoter::VIEW, $offer)) {
             $this->addFlash('error', 'Acces refuse : offre non disponible.');
@@ -116,10 +119,14 @@ class OfferController extends AbstractController
             ])->createView();
         }
 
+        $resolvedScore = $offerImpactScoreResolver->resolve($offer);
+
         return $this->render('offer/show.html.twig', [
             'offer' => $offer,
             'applicationForm' => $applicationForm,
             'canApply' => $canApply,
+            'impactScore' => $resolvedScore['impactScore'],
+            'isImpactScorePreview' => $resolvedScore['isPreview'],
         ]);
     }
 
@@ -249,7 +256,13 @@ class OfferController extends AbstractController
 
     #[Route('/{id}/publish', name: 'offer_publish', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
-    public function publish(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
+    public function publish(
+        Request $request,
+        Offer $offer,
+        EntityManagerInterface $entityManager,
+        ImpactScoreService $impactScoreService,
+        PointsLedgerService $pointsLedgerService
+    ): Response
     {
         if ($this->isCsrfTokenValid('publish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
             if (!$this->isGranted(OfferVoter::PUBLISH, $offer)) {
@@ -259,7 +272,15 @@ class OfferController extends AbstractController
 
             $offer->setStatus(Offer::STATUS_PUBLISHED);
             $offer->setPublishedAt(new \DateTimeImmutable());
+
+            $impactScore = $impactScoreService->computeAndStore($offer);
+            $ledgerEntry = $pointsLedgerService->awardOfferPublicationPoints($offer, $impactScore);
+
             $entityManager->flush();
+
+            if (null !== $ledgerEntry) {
+                $this->addFlash('success', sprintf('Publication reussie. +%d points d impact.', $ledgerEntry->getPoints()));
+            }
         }
 
         return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
