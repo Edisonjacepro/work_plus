@@ -1,0 +1,14 @@
+{% use 'form_div_layout.html.twig' %}
+
+{% block form_errors %}
+    {% if errors|length > 0 %}
+        <ul class="form-errors">
+            {% for error in errors %}
+                {% set normalizedError = error.message|lower %}
+                {% set isDuplicateError = ('deja utilise' in normalizedError) or ('déjà utilisé' in normalizedError) %}
+                <li class="{{ isDuplicateError ? 'form-error-duplicate' : 'form-error-default' }}">{{ error.message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock form_errors %}
+

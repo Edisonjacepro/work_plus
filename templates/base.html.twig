@@ -44,7 +44,9 @@
         <main class="container">
             {% for label, messages in app.flashes %}
                 {% for message in messages %}
-                    <div class="flash flash-{{ label }}">{{ message }}</div>
+                    {% set normalizedMessage = message|lower %}
+                    {% set isDuplicateMessage = ('deja utilise' in normalizedMessage) or ('déjà utilisé' in normalizedMessage) %}
+                    <div class="flash flash-{{ label }}{{ isDuplicateMessage ? ' flash-duplicate' : '' }}">{{ message }}</div>
                 {% endfor %}
             {% endfor %}
             {% block body %}{% endblock %}
