@@ -21,6 +21,23 @@ class PointsClaimRepository extends ServiceEntityRepository
         return $this->findOneBy(['idempotencyKey' => $idempotencyKey]);
     }
 
+    public function hasEvidenceHashForCompany(int $companyId, string $fileHash): bool
+    {
+        $sql = <<<'SQL'
+SELECT COUNT(id)
+FROM points_claim
+WHERE company_id = :companyId
+  AND CAST(evidence_documents AS TEXT) LIKE :hashPattern
+SQL;
+
+        $count = (int) $this->getEntityManager()->getConnection()->fetchOne($sql, [
+            'companyId' => $companyId,
+            'hashPattern' => '%"fileHash":"' . $fileHash . '"%',
+        ]);
+
+        return $count > 0;
+    }
+
     /**
      * @return list<PointsClaim>
      */

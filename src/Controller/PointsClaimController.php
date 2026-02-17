@@ -8,8 +8,10 @@ use App\Entity\User;
 use App\Form\PointsClaimType;
 use App\Repository\OfferRepository;
 use App\Repository\PointsClaimRepository;
+use App\Repository\PointsClaimReviewEventRepository;
 use App\Security\PointsClaimVoter;
 use App\Service\ImpactEvidenceProviderInterface;
+use App\Service\PointsClaimDecisionNotifier;
 use App\Service\PointsClaimService;
 use App\Service\PointsLedgerService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -112,6 +114,7 @@ class PointsClaimController extends AbstractController
                         'storedName' => $storedName,
                         'mimeType' => (string) $uploadedFile->getClientMimeType(),
                         'size' => is_file($fullPath) ? (int) (filesize($fullPath) ?: 0) : 0,
+                        'fileHash' => hash_file('sha256', $fullPath) ?: null,
                         'valid' => true,
                     ];
                 }
@@ -124,6 +127,7 @@ class PointsClaimController extends AbstractController
                         evidenceDocuments: $evidenceDocuments,
                         idempotencyKey: $idempotencyKey,
                         offer: $claim->getOffer(),
+                        evidenceIssuedAt: $claim->getEvidenceIssuedAt(),
                         externalChecks: $externalChecks,
                     );
 
@@ -173,12 +177,18 @@ class PointsClaimController extends AbstractController
     }
 
     #[Route('/{id}', name: 'points_claim_show', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function show(PointsClaim $claim): Response
+    public function show(PointsClaim $claim, PointsClaimReviewEventRepository $reviewEventRepository): Response
     {
         $this->denyAccessUnlessGranted(PointsClaimVoter::VIEW, $claim);
 
+        $events = null !== $claim->getId()
+            ? $reviewEventRepository->findLatestForClaim((int) $claim->getId())
+            : [];
+
         return $this->render('points_claim/show.html.twig', [
             'claim' => $claim,
+            'events' => $events,
+            'reviewReasonCodes' => $this->getReviewReasonCodes(),
         ]);
     }
 
@@ -187,6 +197,7 @@ class PointsClaimController extends AbstractController
         Request $request,
         PointsClaim $claim,
         PointsClaimService $pointsClaimService,
+        PointsClaimDecisionNotifier $pointsClaimDecisionNotifier,
         EntityManagerInterface $entityManager,
     ): Response {
         $this->denyAccessUnlessGranted(PointsClaimVoter::REVIEW, $claim);
@@ -202,7 +213,13 @@ class PointsClaimController extends AbstractController
         }
 
         $decision = strtoupper(trim((string) $request->request->get('decision')));
-        $reason = trim((string) $request->request->get('reason'));
+        $reasonCode = trim((string) $request->request->get('reason_code'));
+        $reasonNote = trim((string) $request->request->get('reason_note'));
+
+        if ('' === $reasonCode) {
+            $this->addFlash('error', 'Un code motif est obligatoire.');
+            return $this->redirectToRoute('points_claim_show', ['id' => $claim->getId()]);
+        }
 
         try {
             if ('APPROVE' === $decision) {
@@ -211,10 +228,12 @@ class PointsClaimController extends AbstractController
                 $entry = $pointsClaimService->approve(
                     claim: $claim,
                     reviewer: $user,
+                    reasonCode: $reasonCode,
                     approvedPoints: (null !== $approvedPoints && $approvedPoints > 0) ? $approvedPoints : null,
-                    reason: '' !== $reason ? $reason : null,
+                    reasonNote: '' !== $reasonNote ? $reasonNote : null,
                 );
                 $entityManager->flush();
+                $pointsClaimDecisionNotifier->sendDecisionNotification($claim);
 
                 if (null !== $entry) {
                     $this->addFlash('success', sprintf('Demande approuvee. +%d points credites.', $entry->getPoints()));
@@ -222,8 +241,9 @@ class PointsClaimController extends AbstractController
                     $this->addFlash('success', 'Demande approuvee. Aucun nouveau credit (idempotence).');
                 }
             } elseif ('REJECT' === $decision) {
-                $pointsClaimService->reject($claim, $user, $reason);
+                $pointsClaimService->reject($claim, $user, $reasonCode, '' !== $reasonNote ? $reasonNote : null);
                 $entityManager->flush();
+                $pointsClaimDecisionNotifier->sendDecisionNotification($claim);
                 $this->addFlash('success', 'Demande rejetee.');
             } else {
                 $this->addFlash('error', 'Decision invalide.');
@@ -321,6 +341,20 @@ class PointsClaimController extends AbstractController
             'coherenceOk' => $sameCompanyOffer,
             'checks' => $checks,
             'sources' => $sources,
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function getReviewReasonCodes(): array
+    {
+        return [
+            'APPROVED_BY_REVIEWER' => PointsClaim::REASON_CODE_APPROVED_BY_REVIEWER,
+            'REJECTED_BY_REVIEWER' => PointsClaim::REASON_CODE_REJECTED_BY_REVIEWER,
+            'INSUFFICIENT_EVIDENCE_SCORE' => PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE,
+            'DUPLICATE_EVIDENCE_FILE' => PointsClaim::REASON_CODE_DUPLICATE_EVIDENCE_FILE,
+            'EVIDENCE_TOO_OLD' => PointsClaim::REASON_CODE_EVIDENCE_TOO_OLD,
         ];
     }
 }

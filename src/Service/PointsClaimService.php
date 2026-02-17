@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\Company;
 use App\Entity\Offer;
 use App\Entity\PointsClaim;
+use App\Entity\PointsClaimReviewEvent;
 use App\Entity\PointsLedgerEntry;
 use App\Entity\User;
 use App\Repository\PointsClaimRepository;
@@ -30,6 +31,7 @@ class PointsClaimService
         array $evidenceDocuments,
         string $idempotencyKey,
         ?Offer $offer = null,
+        ?\DateTimeImmutable $evidenceIssuedAt = null,
         ?array $externalChecks = null,
     ): PointsClaim {
         $normalizedKey = trim($idempotencyKey);
@@ -48,6 +50,13 @@ class PointsClaimService
 
         $evidenceScore = $this->computeEvidenceScore($evidenceDocuments, $externalChecks);
         $suggestedPoints = $this->computeSuggestedPoints($evidenceScore);
+        $companyId = $company->getId();
+        if (null === $companyId) {
+            throw new \InvalidArgumentException('Company id is required.');
+        }
+
+        $duplicateHash = $this->findDuplicateEvidenceHash($companyId, $evidenceDocuments);
+        $isEvidenceTooOld = $this->isEvidenceTooOld($evidenceIssuedAt);
 
         $claim = (new PointsClaim())
             ->setCompany($company)
@@ -57,25 +66,90 @@ class PointsClaimService
             ->setEvidenceDocuments($evidenceDocuments)
             ->setExternalChecks($externalChecks)
             ->setEvidenceScore($evidenceScore)
+            ->setEvidenceIssuedAt($evidenceIssuedAt)
             ->setRuleVersion(PointsClaim::RULE_VERSION_V1)
             ->setIdempotencyKey($normalizedKey);
 
-        if ($evidenceScore >= 70) {
+        $this->entityManager->persist($claim);
+        $this->createReviewEvent(
+            pointsClaim: $claim,
+            action: PointsClaimReviewEvent::ACTION_SUBMITTED,
+            reasonCode: null,
+            reasonText: null,
+            metadata: [
+                'evidenceScore' => $evidenceScore,
+                'suggestedPoints' => $suggestedPoints,
+            ],
+        );
+
+        if (null !== $duplicateHash) {
+            $claim
+                ->setStatus(PointsClaim::STATUS_REJECTED)
+                ->setDecisionReasonCode(PointsClaim::REASON_CODE_DUPLICATE_EVIDENCE_FILE)
+                ->setDecisionReason('Un justificatif identique a deja ete soumis.')
+                ->setReviewedAt(new \DateTimeImmutable());
+            $this->createReviewEvent(
+                pointsClaim: $claim,
+                action: PointsClaimReviewEvent::ACTION_AUTO_REJECTED,
+                reasonCode: PointsClaim::REASON_CODE_DUPLICATE_EVIDENCE_FILE,
+                reasonText: null,
+                metadata: ['duplicateHash' => $duplicateHash],
+            );
+        } elseif ($isEvidenceTooOld) {
+            $claim
+                ->setStatus(PointsClaim::STATUS_REJECTED)
+                ->setDecisionReasonCode(PointsClaim::REASON_CODE_EVIDENCE_TOO_OLD)
+                ->setDecisionReason('La date de preuve est trop ancienne.')
+                ->setReviewedAt(new \DateTimeImmutable());
+            $this->createReviewEvent(
+                pointsClaim: $claim,
+                action: PointsClaimReviewEvent::ACTION_AUTO_REJECTED,
+                reasonCode: PointsClaim::REASON_CODE_EVIDENCE_TOO_OLD,
+                reasonText: null,
+                metadata: [
+                    'evidenceIssuedAt' => $evidenceIssuedAt?->format('Y-m-d'),
+                ],
+            );
+        } elseif ($evidenceScore >= 70) {
             $claim
                 ->setStatus(PointsClaim::STATUS_APPROVED)
                 ->setApprovedPoints($suggestedPoints)
-                ->setDecisionReason('AUTO_APPROVED_EVIDENCE_SCORE')
+                ->setDecisionReasonCode(PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE)
+                ->setDecisionReason('Validation automatique par score.')
                 ->setReviewedAt(new \DateTimeImmutable());
+            $this->createReviewEvent(
+                pointsClaim: $claim,
+                action: PointsClaimReviewEvent::ACTION_AUTO_APPROVED,
+                reasonCode: PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE,
+                reasonText: null,
+                metadata: null,
+            );
         } elseif ($evidenceScore >= 40) {
-            $claim->setStatus(PointsClaim::STATUS_IN_REVIEW);
+            $claim
+                ->setStatus(PointsClaim::STATUS_IN_REVIEW)
+                ->setDecisionReasonCode(PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW)
+                ->setDecisionReason('Revue humaine requise.');
+            $this->createReviewEvent(
+                pointsClaim: $claim,
+                action: PointsClaimReviewEvent::ACTION_MARKED_IN_REVIEW,
+                reasonCode: PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW,
+                reasonText: null,
+                metadata: null,
+            );
         } else {
             $claim
                 ->setStatus(PointsClaim::STATUS_REJECTED)
-                ->setDecisionReason('INSUFFICIENT_EVIDENCE_SCORE')
+                ->setDecisionReasonCode(PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE)
+                ->setDecisionReason('Score de preuve insuffisant.')
                 ->setReviewedAt(new \DateTimeImmutable());
+            $this->createReviewEvent(
+                pointsClaim: $claim,
+                action: PointsClaimReviewEvent::ACTION_AUTO_REJECTED,
+                reasonCode: PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE,
+                reasonText: null,
+                metadata: null,
+            );
         }
-
-        $this->entityManager->persist($claim);
 
         if (PointsClaim::STATUS_APPROVED === $claim->getStatus()) {
             $this->createApprovalLedgerEntry($claim, $suggestedPoints);
@@ -95,15 +169,35 @@ class PointsClaimService
 
         $claim
             ->setStatus(PointsClaim::STATUS_IN_REVIEW)
+            ->setDecisionReasonCode(PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW)
+            ->setDecisionReason('Revue humaine requise.')
             ->setExternalChecks($externalChecks);
 
         $this->entityManager->persist($claim);
+        $this->createReviewEvent(
+            pointsClaim: $claim,
+            action: PointsClaimReviewEvent::ACTION_MARKED_IN_REVIEW,
+            reasonCode: PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW,
+            reasonText: null,
+            metadata: null,
+        );
     }
 
-    public function approve(PointsClaim $claim, User $reviewer, ?int $approvedPoints = null, ?string $reason = null): ?PointsLedgerEntry
+    public function approve(
+        PointsClaim $claim,
+        User $reviewer,
+        string $reasonCode,
+        ?int $approvedPoints = null,
+        ?string $reasonNote = null,
+    ): ?PointsLedgerEntry
     {
         if (PointsClaim::STATUS_REJECTED === $claim->getStatus()) {
             throw new \LogicException('A rejected claim cannot be approved directly.');
+        }
+
+        $normalizedReasonCode = trim($reasonCode);
+        if ('' === $normalizedReasonCode) {
+            throw new \InvalidArgumentException('An approval reason code is required.');
         }
 
         $points = $approvedPoints ?? $claim->getRequestedPoints();
@@ -114,33 +208,56 @@ class PointsClaimService
         $claim
             ->setStatus(PointsClaim::STATUS_APPROVED)
             ->setApprovedPoints($points)
-            ->setDecisionReason(null !== $reason ? trim($reason) : 'APPROVED_BY_REVIEWER')
+            ->setDecisionReasonCode($normalizedReasonCode)
+            ->setDecisionReason(null !== $reasonNote ? trim($reasonNote) : 'Validated by reviewer.')
             ->setReviewedBy($reviewer)
             ->setReviewedAt(new \DateTimeImmutable());
 
         $this->entityManager->persist($claim);
+        $this->createReviewEvent(
+            pointsClaim: $claim,
+            action: PointsClaimReviewEvent::ACTION_APPROVED,
+            actor: $reviewer,
+            reasonCode: $normalizedReasonCode,
+            reasonText: $claim->getDecisionReason(),
+            metadata: ['approvedPoints' => $points],
+        );
 
         return $this->createApprovalLedgerEntry($claim, $points);
     }
 
-    public function reject(PointsClaim $claim, User $reviewer, string $reason): void
+    public function reject(PointsClaim $claim, User $reviewer, string $reasonCode, ?string $reasonNote = null): void
     {
-        $trimmedReason = trim($reason);
-        if ('' === $trimmedReason) {
-            throw new \InvalidArgumentException('A rejection reason is required.');
+        $normalizedReasonCode = trim($reasonCode);
+        if ('' === $normalizedReasonCode) {
+            throw new \InvalidArgumentException('A rejection reason code is required.');
         }
 
         if (PointsClaim::STATUS_APPROVED === $claim->getStatus()) {
             throw new \LogicException('An approved claim cannot be rejected directly.');
         }
 
+        $trimmedReason = trim((string) $reasonNote);
+        if ('' === $trimmedReason) {
+            $trimmedReason = 'Rejected by reviewer.';
+        }
+
         $claim
             ->setStatus(PointsClaim::STATUS_REJECTED)
+            ->setDecisionReasonCode($normalizedReasonCode)
             ->setDecisionReason($trimmedReason)
             ->setReviewedBy($reviewer)
             ->setReviewedAt(new \DateTimeImmutable());
 
         $this->entityManager->persist($claim);
+        $this->createReviewEvent(
+            pointsClaim: $claim,
+            action: PointsClaimReviewEvent::ACTION_REJECTED,
+            actor: $reviewer,
+            reasonCode: $normalizedReasonCode,
+            reasonText: $trimmedReason,
+            metadata: null,
+        );
     }
 
     /**
@@ -184,6 +301,36 @@ class PointsClaimService
         return max(5, min(30, $suggested));
     }
 
+    /**
+     * @param list<array<string, mixed>> $evidenceDocuments
+     */
+    private function findDuplicateEvidenceHash(int $companyId, array $evidenceDocuments): ?string
+    {
+        foreach ($evidenceDocuments as $document) {
+            $fileHash = (string) ($document['fileHash'] ?? '');
+            if ('' === $fileHash) {
+                continue;
+            }
+
+            if ($this->pointsClaimRepository->hasEvidenceHashForCompany($companyId, $fileHash)) {
+                return $fileHash;
+            }
+        }
+
+        return null;
+    }
+
+    private function isEvidenceTooOld(?\DateTimeImmutable $evidenceIssuedAt): bool
+    {
+        if (!$evidenceIssuedAt instanceof \DateTimeImmutable) {
+            return false;
+        }
+
+        $threshold = (new \DateTimeImmutable('today'))->modify('-24 months');
+
+        return $evidenceIssuedAt < $threshold;
+    }
+
     private function createApprovalLedgerEntry(PointsClaim $claim, int $points): ?PointsLedgerEntry
     {
         $idempotencyKey = sprintf('points_claim_approval_%s', $claim->getIdempotencyKey());
@@ -210,5 +357,27 @@ class PointsClaimService
         $this->entityManager->persist($entry);
 
         return $entry;
+    }
+
+    /**
+     * @param array<string, mixed>|null $metadata
+     */
+    private function createReviewEvent(
+        PointsClaim $pointsClaim,
+        string $action,
+        ?User $actor = null,
+        ?string $reasonCode = null,
+        ?string $reasonText = null,
+        ?array $metadata = null,
+    ): void {
+        $event = (new PointsClaimReviewEvent())
+            ->setPointsClaim($pointsClaim)
+            ->setActor($actor)
+            ->setAction($action)
+            ->setReasonCode($reasonCode)
+            ->setReasonText($reasonText)
+            ->setMetadata($metadata);
+
+        $this->entityManager->persist($event);
     }
 }
