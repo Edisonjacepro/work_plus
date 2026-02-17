@@ -1,0 +1,84 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mon impact{% endblock %}
+
+{% block body %}
+    <h1>Mon impact - {{ company.name }}</h1>
+
+    <section>
+        <h2>Points acquis</h2>
+        <p><strong>Total cumule:</strong> {{ impactPointsBalance }}</p>
+
+        <h3>Historique des points</h3>
+        {% if companyPointsHistory is empty %}
+            <p>Aucun credit de points pour le moment.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Reference</th>
+                        <th>Motif</th>
+                        <th>Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in companyPointsHistory %}
+                        <tr>
+                            <td>{{ entry.createdAt ? entry.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                            <td>{{ entry.referenceType }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
+                            <td>{{ entry.reason }}</td>
+                            <td>{{ entry.points > 0 ? '+' ~ entry.points : entry.points }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
+
+    <section>
+        <h2>Ajouter des preuves d'impact</h2>
+        <p>Ajoutez des certificats et autres pieces qui prouvent l'impact positif de votre entreprise.</p>
+
+        {{ form_start(form, {attr: {enctype: 'multipart/form-data'}}) }}
+            {{ form_row(form.claimType) }}
+            {{ form_row(form.offer) }}
+            {{ form_row(form.evidenceFiles) }}
+            <button type="submit">Envoyer mes preuves</button>
+        {{ form_end(form) }}
+    </section>
+
+    <section>
+        <h2>Suivi des preuves envoyees</h2>
+        {% if claims is empty %}
+            <p>Aucune preuve envoyee pour le moment.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Statut</th>
+                        <th>Score</th>
+                        <th>Points proposes</th>
+                        <th>Points acquis</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for claim in claims %}
+                        <tr>
+                            <td>{{ claim.createdAt ? claim.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                            <td>{{ claim.claimType }}</td>
+                            <td>{{ claim.status }}</td>
+                            <td>{{ claim.evidenceScore }}</td>
+                            <td>{{ claim.requestedPoints }}</td>
+                            <td>{{ claim.approvedPoints ?? '-' }}</td>
+                            <td><a href="{{ path('points_claim_show', {id: claim.id}) }}">Voir</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
+{% endblock %}

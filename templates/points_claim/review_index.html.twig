@@ -1,0 +1,40 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Revue demandes de points{% endblock %}
+
+{% block body %}
+    <h1>File de revue - demandes de points</h1>
+
+    {% if claims is empty %}
+        <p>Aucune demande en attente.</p>
+    {% else %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Entreprise</th>
+                    <th>Type</th>
+                    <th>Points proposes</th>
+                    <th>Score</th>
+                    <th>Statut</th>
+                    <th>Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for claim in claims %}
+                    <tr>
+                        <td>#{{ claim.id }}</td>
+                        <td>{{ claim.company.name }}</td>
+                        <td>{{ claim.claimType }}</td>
+                        <td>{{ claim.requestedPoints }}</td>
+                        <td>{{ claim.evidenceScore }}</td>
+                        <td>{{ claim.status }}</td>
+                        <td>{{ claim.createdAt ? claim.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                        <td><a href="{{ path('points_claim_show', {id: claim.id}) }}">Traiter</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}

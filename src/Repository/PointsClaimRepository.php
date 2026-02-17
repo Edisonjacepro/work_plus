@@ -24,6 +24,20 @@ class PointsClaimRepository extends ServiceEntityRepository
     /**
      * @return list<PointsClaim>
      */
+    public function findLatestForCompany(int $companyId, int $limit = 50): array
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.company = :companyId')
+            ->setParameter('companyId', $companyId)
+            ->orderBy('c.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return list<PointsClaim>
+     */
     public function findPendingForReview(int $limit = 50): array
     {
         return $this->createQueryBuilder('c')
