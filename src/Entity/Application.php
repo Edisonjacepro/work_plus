@@ -12,6 +12,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\HasLifecycleCallbacks]
 class Application
 {
+    public const STATUS_SUBMITTED = 'SUBMITTED';
+    public const STATUS_HIRED = 'HIRED';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -47,6 +50,16 @@ class Application
 
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
+
+    #[ORM\Column(length: 20)]
+    #[Assert\Choice(choices: [
+        self::STATUS_SUBMITTED,
+        self::STATUS_HIRED,
+    ])]
+    private string $status = self::STATUS_SUBMITTED;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $hiredAt = null;
 
     /**
      * @var Collection<int, ApplicationMessage>
@@ -152,6 +165,30 @@ class Application
     public function getCreatedAt(): ?\DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+
+    public function setStatus(string $status): static
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
+    public function getHiredAt(): ?\DateTimeImmutable
+    {
+        return $this->hiredAt;
+    }
+
+    public function setHiredAt(?\DateTimeImmutable $hiredAt): static
+    {
+        $this->hiredAt = $hiredAt;
+
+        return $this;
     }
 
     /**

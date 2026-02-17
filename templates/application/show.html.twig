@@ -8,6 +8,25 @@
     <p><strong>Candidat :</strong> {{ application.firstName }} {{ application.lastName }}</p>
     <p><strong>Email :</strong> {{ application.email }}</p>
     <p><strong>Date :</strong> {{ application.createdAt ? application.createdAt|date('d/m/Y H:i') : '-' }}</p>
+    <p>
+        <strong>Statut :</strong>
+        <span class="status-badge status-{{ application.status|lower }}">
+            {{ application.status == 'HIRED' ? 'Embauche' : 'Soumise' }}
+        </span>
+        {% if application.hiredAt %}
+            ({{ application.hiredAt|date('d/m/Y H:i') }})
+        {% endif %}
+    </p>
+
+    {% if is_granted('APPLICATION_HIRE', application) and application.status != 'HIRED' %}
+        <section>
+            <h2>Decision recruteur</h2>
+            <form method="post" action="{{ path('application_hire', {id: application.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('hire_application_' ~ application.id) }}">
+                <button class="btn" type="submit">Marquer comme embauche</button>
+            </form>
+        </section>
+    {% endif %}
 
     <section>
         <h2>Message initial</h2>

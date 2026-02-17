@@ -64,6 +64,7 @@
                         <th>Offre</th>
                         <th>Entreprise</th>
                         <th>Date</th>
+                        <th>Statut</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -73,6 +74,11 @@
                             <td>{{ application.offer.title }}</td>
                             <td>{{ application.offer.company.name }}</td>
                             <td>{{ application.createdAt ? application.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                            <td>
+                                <span class="status-badge status-{{ application.status|lower }}">
+                                    {{ application.status == 'HIRED' ? 'Embauche' : 'Soumise' }}
+                                </span>
+                            </td>
                             <td><a href="{{ path('application_show', {id: application.id}) }}">Consulter</a></td>
                         </tr>
                     {% endfor %}

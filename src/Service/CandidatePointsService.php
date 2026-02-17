@@ -12,7 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class CandidatePointsService
 {
-    private const BASE_APPLICATION_POINTS = 5;
+    private const BASE_HIRED_POINTS = 5;
     private const MAX_IMPACT_BONUS_POINTS = 10;
 
     public function __construct(
@@ -22,31 +22,36 @@ class CandidatePointsService
     ) {
     }
 
-    public function awardApplicationSubmissionPoints(Application $application): ?PointsLedgerEntry
+    public function awardApplicationHiredPoints(Application $application): ?PointsLedgerEntry
     {
         $candidate = $application->getCandidate();
         $applicationId = $application->getId();
         $offer = $application->getOffer();
         $offerId = $offer?->getId();
 
-        if (!$candidate instanceof User || null === $applicationId || null === $offerId) {
+        if (
+            !$candidate instanceof User
+            || null === $applicationId
+            || null === $offerId
+            || Application::STATUS_HIRED !== $application->getStatus()
+        ) {
             return null;
         }
 
-        $idempotencyKey = sprintf('application_submission_candidate_%d', $applicationId);
+        $idempotencyKey = sprintf('application_hired_candidate_%d', $applicationId);
         if ($this->pointsLedgerEntryRepository->existsByIdempotencyKey($idempotencyKey)) {
             return null;
         }
 
         $impactScore = $this->impactScoreRepository->findLatestForOffer($offerId);
         $impactBonus = $this->computeImpactBonus($impactScore);
-        $points = self::BASE_APPLICATION_POINTS + $impactBonus;
+        $points = self::BASE_HIRED_POINTS + $impactBonus;
 
         $entry = (new PointsLedgerEntry())
             ->setEntryType(PointsLedgerEntry::TYPE_CREDIT)
             ->setPoints($points)
-            ->setReason('Candidate points for submitted application')
-            ->setReferenceType(PointsLedgerEntry::REFERENCE_APPLICATION_SUBMISSION)
+            ->setReason('Candidate points for hired application')
+            ->setReferenceType(PointsLedgerEntry::REFERENCE_APPLICATION_HIRED)
             ->setReferenceId($applicationId)
             ->setRuleVersion($impactScore?->getRuleVersion() ?? ImpactScore::RULE_VERSION_V1_AUTO)
             ->setIdempotencyKey($idempotencyKey)
@@ -54,7 +59,7 @@ class CandidatePointsService
             ->setMetadata([
                 'applicationId' => $applicationId,
                 'offerId' => $offerId,
-                'basePoints' => self::BASE_APPLICATION_POINTS,
+                'basePoints' => self::BASE_HIRED_POINTS,
                 'impactBonusPoints' => $impactBonus,
                 'offerImpactScore' => $impactScore?->getTotalScore(),
             ]);
