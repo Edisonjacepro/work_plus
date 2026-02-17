@@ -40,6 +40,12 @@ Livrer un MVP simple et praticable sans IA:
 5. Le systeme calcule automatiquement les points proposes (pas de saisie manuelle de points par l'entreprise).
 6. Si `APPROVED`, creation d'une ligne `CREDIT` dans le ledger.
 
+## 3.3 Points candidat
+
+- Les points candidat sont attribues uniquement si la candidature passe au statut `HIRED` (embauche).
+- Aucun point candidat n'est attribue a la simple soumission de candidature.
+- L'ecriture ledger associee est idempotente via une cle dediee par candidature.
+
 ## 4. Calcul deterministe sans IA
 
 `evidenceScore` base sur:
