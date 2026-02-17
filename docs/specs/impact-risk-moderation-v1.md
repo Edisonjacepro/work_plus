@@ -30,14 +30,15 @@ Livrer un MVP simple et praticable sans IA:
 
 ## 3.2 Demande de points (`PointsClaim`)
 
-1. L'entreprise soumet une demande de points avec type d'action et justificatifs.
+1. L'entreprise utilise une page unique `Mon impact` pour deposer des justificatifs (certificats, preuves, etc.).
 2. Le systeme calcule un `evidenceScore` (0..100) a partir de regles.
 3. Le systeme enrichit avec verifications externes gratuites (API publiques).
 4. Decision:
 - `evidenceScore >= 70`: `APPROVED` (auto possible),
 - `40..69`: `IN_REVIEW` (validation humaine),
 - `< 40`: `REJECTED` (raison obligatoire).
-5. Si `APPROVED`, creation d'une ligne `CREDIT` dans le ledger.
+5. Le systeme calcule automatiquement les points proposes (pas de saisie manuelle de points par l'entreprise).
+6. Si `APPROVED`, creation d'une ligne `CREDIT` dans le ledger.
 
 ## 4. Calcul deterministe sans IA
 
@@ -65,7 +66,7 @@ Champs minimum:
 - `offer` (FK nullable),
 - `claimType` (ex: `TRAINING`, `VOLUNTEERING`, `CERTIFICATION`, `OTHER`),
 - `status` (`SUBMITTED`, `IN_REVIEW`, `APPROVED`, `REJECTED`),
-- `requestedPoints`,
+- `requestedPoints` (champ calcule automatiquement par le systeme),
 - `approvedPoints` (nullable),
 - `evidenceDocuments` (json, au moins 1),
 - `externalChecks` (json nullable),
@@ -148,6 +149,10 @@ Integration tests (iteration suivante):
 
 - Publication d'offre possible sans justificatifs.
 - Gain de points possible uniquement via `PointsClaim` approuve.
+- Page `Mon impact` disponible avec:
+- visualisation des points acquis,
+- historique,
+- depot de pieces justificatives.
 - Ledger coherent et idempotent.
 - Tests unitaires critiques passants.
 - Aucun log metier avec PII en clair.
