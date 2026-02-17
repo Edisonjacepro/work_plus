@@ -1,4 +1,4 @@
-# Specification Technique - Moderation Impact-Risque v1
+# Specification Technique - Moderation simple + Points sur justificatifs v1
 
 Date: 2026-02-17  
 Projet: Work+  
@@ -6,279 +6,148 @@ Statut: Proposition prete a implementer
 
 ## 1. Objectif
 
-Mettre en place une moderation des offres basee sur le risque d'impact negatif, y compris pour des activites legales, avec:
+Livrer un MVP simple et praticable sans IA:
 
-- evaluation automatique (IA + APIs externes),
-- escalation humaine en fonction du niveau de risque,
-- actions admin (masquer offre, interdire utilisateur/entreprise),
-- tracabilite complete pour audit,
-- compatibilite avec le ledger de points append-only.
+- publication d'offre sans pieces justificatives obligatoires,
+- attribution de points entreprise via demandes avec justificatifs,
+- controle automatique deterministe (regles + APIs publiques gratuites),
+- escalade humaine quand necessaire,
+- audit et idempotence sur le ledger.
 
-Cette moderation ne remplace pas le cadre legal; elle ajoute un filtre produit "impact positif".
+## 2. Regle produit centrale
 
-## 2. Perimetre v1
-
-Inclut:
-
-- workflow de moderation des offres,
-- moteur de decision impact-risque,
-- persistance des decisions et des preuves techniques,
-- actions admin de mitigation (`mask`, `ban`),
-- integration avec attribution/retrait des points.
-
-Exclut (v1):
-
-- scoring multi-modeles avances,
-- orchestration ML complexe (feature store),
-- automatisation de contestation utilisateur.
+- Publier une offre: possible sans justificatifs.
+- Gagner des points entreprise: justificatifs obligatoires.
+- Aucune attribution automatique de points a la simple publication.
 
 ## 3. Workflow cible
 
-### 3.1 Etats offre (moderation)
+## 3.1 Publication d'offre
 
-Ajouter un statut de moderation distinct du statut de publication:
+1. L'entreprise cree et publie l'offre (`DRAFT` -> `PUBLISHED`) selon le flux existant.
+2. La moderation de visibilite reste possible via admin (`isVisible`).
+3. Aucun credit de points n'est cree a cette etape.
 
-- `DRAFT`: brouillon edite par l'auteur.
-- `SUBMITTED`: soumis, en attente de decision automatique.
-- `IN_REVIEW`: revue humaine requise.
-- `APPROVED`: valide pour publication.
-- `REJECTED`: refuse, raison obligatoire.
-- `MASKED`: masque temporairement/par decision admin.
+## 3.2 Demande de points (`PointsClaim`)
 
-Note: le champ `isVisible` existant reste la commande d'affichage immediate; `MASKED` est l'etat de moderation associe.
+1. L'entreprise soumet une demande de points avec type d'action et justificatifs.
+2. Le systeme calcule un `evidenceScore` (0..100) a partir de regles.
+3. Le systeme enrichit avec verifications externes gratuites (API publiques).
+4. Decision:
+- `evidenceScore >= 70`: `APPROVED` (auto possible),
+- `40..69`: `IN_REVIEW` (validation humaine),
+- `< 40`: `REJECTED` (raison obligatoire).
+5. Si `APPROVED`, creation d'une ligne `CREDIT` dans le ledger.
 
-### 3.2 Sequence
+## 4. Calcul deterministe sans IA
 
-1. Auteur soumet une offre (`SUBMITTED`).
-2. Evaluation automatique IA/API produit:
-- `riskScore` (0..100),
-- `confidenceScore` (0..1),
-- flags explicites.
-3. Routage:
-- faible risque -> approbation auto,
-- risque moyen/eleve ou confiance basse -> revue humaine.
-4. Moderateur decide `APPROVED` ou `REJECTED`, ou `MASKED` si mitigation immediate.
-5. Action admin possible a tout moment:
-- masquer une offre,
-- bannir un utilisateur,
-- bannir une entreprise.
-6. Toute decision ecrit un evenement auditable.
+`evidenceScore` base sur:
 
-## 4. Regles de decision v1
+- completude des justificatifs (40 pts),
+- validite technique des fichiers (20 pts),
+- coherence avec donnees entreprise/offre (20 pts),
+- verifications APIs publiques (20 pts).
 
-## 4.1 Inputs
+APIs gratuites ciblees:
 
-- `impactNegativePotential` (0..100): intensite d'impact negatif potentiel.
-- `probability` (0..100): probabilite de survenue.
-- `severity` (0..100): gravite en cas de survenue.
-- `confidenceScore` (0..1): confiance du resultat IA.
-- `criticalFlags[]`: indicateurs critiques (contradiction, preuves absentes, signaux externes graves, recidive).
+- API Recherche d'Entreprises (etat, activite, identite),
+- API geo.gouv (coherence geographique si necessaire),
+- autres open data selon action.
 
-## 4.2 Calcul
+## 5. Modele de donnees v1
 
-Formule initiale:
+## 5.1 Entite `PointsClaim` (nouvelle)
 
-`riskScore = round(0.45 * impactNegativePotential + 0.30 * probability + 0.25 * severity)`
-
-Bornage final: `0..100`.
-
-## 4.3 Matrice de decision
-
-- Si `confidenceScore < 0.60` -> `IN_REVIEW`.
-- Sinon si `riskScore <= 30` et pas de `criticalFlags` -> `APPROVED` auto.
-- Sinon si `31 <= riskScore <= 69` -> `IN_REVIEW`.
-- Sinon (`riskScore >= 70`) -> `MASKED` + revue humaine prioritaire.
-
-Regle de surete: un `criticalFlag` force `IN_REVIEW` minimum.
-
-## 5. Sources IA / API (abstraction)
-
-## 5.1 Contrat applicatif
-
-Introduire un contrat d'integration:
-
-- `RiskEvidenceProviderInterface::collect(Offer $offer): RiskEvidenceBundle`
-
-Un bundle contient:
-
-- scores intermediaires,
-- `confidenceScore`,
-- `criticalFlags`,
-- references de sources,
-- hash des preuves normalisees.
-
-## 5.2 Gouvernance
-
-- Pas de PII inutile envoyee aux providers.
-- Timeout strict par provider + fallback degrade.
-- Tracer les erreurs de provider sans fuite de contenu sensible.
-
-## 6. Modele de donnees cible
-
-## 6.1 Offer (evolution)
-
-Ajouter:
-
-- `moderationStatus` (`DRAFT|SUBMITTED|IN_REVIEW|APPROVED|REJECTED|MASKED`),
-- `submittedAt` (nullable),
-- `moderationUpdatedAt` (nullable),
-- `maskedAt` (nullable),
-- `maskedReasonCode` (nullable, court).
-
-Conserver:
-
-- `status` publication existant (migration ulterieure possible),
-- `isVisible` pour effet immediate de masquage.
-
-## 6.2 ModerationReview (append-only)
-
-Entite nouvelle:
+Champs minimum:
 
 - `id`,
-- `offer` (FK),
-- `reviewer` (FK user nullable pour auto),
-- `decision` (`AUTO_APPROVED|APPROVED|REJECTED|MASKED`),
-- `reasonCode` (obligatoire sauf auto clean),
-- `reasonText` (nullable, redige par humain),
-- `riskScore` (int),
-- `confidenceScore` (float),
-- `criticalFlags` (json),
-- `evidenceHash` (string),
-- `source` (`SYSTEM` ou `HUMAN`),
-- `createdAt`.
+- `company` (FK obligatoire),
+- `offer` (FK nullable),
+- `claimType` (ex: `TRAINING`, `VOLUNTEERING`, `CERTIFICATION`, `OTHER`),
+- `status` (`SUBMITTED`, `IN_REVIEW`, `APPROVED`, `REJECTED`),
+- `requestedPoints`,
+- `approvedPoints` (nullable),
+- `evidenceDocuments` (json, au moins 1),
+- `externalChecks` (json nullable),
+- `evidenceScore` (0..100),
+- `decisionReason` (nullable, obligatoire si rejet),
+- `ruleVersion`,
+- `idempotencyKey` (unique),
+- `reviewedBy` (FK user nullable),
+- `reviewedAt` (nullable),
+- `createdAt`,
+- `updatedAt`.
 
-Regle: table append-only, jamais de update metier sur les lignes historiques.
+## 5.2 Ledger points
 
-## 6.3 ActorSanction (admin)
+- `PointsLedgerEntry` reste append-only.
+- Nouveau `referenceType`: `POINTS_CLAIM_APPROVAL`.
+- Credit uniquement a l'approbation d'une demande.
+- Solde entreprise = somme du ledger.
 
-Entite nouvelle:
+## 6. Services Symfony (MVC)
 
-- `id`,
-- `targetType` (`USER|COMPANY`),
-- `targetId`,
-- `actionType` (`BAN_TEMP|BAN_PERM|UNBAN`),
-- `reasonCode`,
-- `reasonText` (nullable),
-- `startedAt`,
-- `endsAt` (nullable),
-- `createdBy` (admin user id),
-- `createdAt`.
+Services metier:
 
-## 6.4 Reason Codes v1
+- `PointsClaimService`
+- `PointsClaimScoringService` (optionnel en v1, sinon inclus dans `PointsClaimService`)
+- `PointsLedgerService` (existant, etendu au nouveau cas)
 
-Liste initiale standardisee:
+Methodes minimales:
 
-- `NEGATIVE_ENVIRONMENTAL_EXTERNALITY`
-- `NEGATIVE_SOCIAL_EXTERNALITY`
-- `HIGH_HARM_RISK`
-- `UNSUPPORTED_IMPACT_CLAIM`
-- `INCONSISTENT_CLAIM`
-- `REPUTATION_RISK_SIGNAL`
-- `RECIDIVISM_PATTERN`
-- `ADMIN_PRECAUTIONARY_MASK`
-- `ADMIN_POLICY_VIOLATION`
+- `PointsClaimService::submit(...)`
+- `PointsClaimService::markInReview(...)`
+- `PointsClaimService::approve(...)`
+- `PointsClaimService::reject(...)`
 
-## 7. Services Symfony (MVC)
+Controllers:
 
-## 7.1 Services metier
+- restent minces (orchestration + validation + appel service).
 
-- `ImpactRiskAssessmentService`
-- `ModerationService`
-- `AdminEnforcementService`
-- `ModerationAuditService`
+## 7. Idempotence
 
-## 7.2 Methodes minimales
+- Chaque demande a une `idempotencyKey` unique.
+- Chaque credit ledger lie a la demande utilise une cle deterministe derivee de cette demande.
+- Rejouer la meme operation ne doit pas creer de doublon.
 
-- `ImpactRiskAssessmentService::assess(Offer $offer): ImpactRiskAssessmentResult`
-- `ModerationService::submit(Offer $offer, User $actor): void`
-- `ModerationService::autoDecide(Offer $offer): AutoDecisionResult`
-- `ModerationService::approve(Offer $offer, User $reviewer, string $reasonCode, ?string $note): void`
-- `ModerationService::reject(Offer $offer, User $reviewer, string $reasonCode, ?string $note): void`
-- `ModerationService::mask(Offer $offer, User $reviewer, string $reasonCode, ?string $note): void`
-- `AdminEnforcementService::banUser(User $target, User $admin, string $reasonCode, ?\DateTimeImmutable $until): void`
-- `AdminEnforcementService::banCompany(Company $target, User $admin, string $reasonCode, ?\DateTimeImmutable $until): void`
+## 8. Securite et RGPD
 
-Controllers: orchestration uniquement (request, validation, appel service, response).
+- Aucun PII en clair dans logs metier.
+- Logs: IDs techniques, statut, reason codes, timestamp.
+- Validation stricte des entrees (type, taille, format).
+- CSRF pour formulaires web.
+- Autorisations via Voters/roles sur approbation/rejet.
 
-## 8. Integration points / ledger
+## 9. Strategie de test v1
 
-## 8.1 Attribution
+Unit tests:
 
-- Credit de points uniquement sur transition vers `APPROVED`.
-- Interdit en `SUBMITTED`, `IN_REVIEW`, `MASKED`, `REJECTED`.
+- `PointsClaimServiceTest`:
+- soumission valide,
+- blocage soumission sans justificatif,
+- transition `APPROVED` avec creation ledger,
+- idempotence sur approbation,
+- rejet avec raison obligatoire.
 
-## 8.2 Retrait / correction
+Integration tests (iteration suivante):
 
-Si offre deja creditee puis `MASKED` ou `REJECTED`:
+- endpoints de soumission/revue,
+- persistence DB `points_claim`,
+- coherence ledger apres approbation.
 
-- ecrire un `DEBIT` ou `ADJUSTMENT` dans `PointsLedgerEntry`,
-- reference type: `OFFER_MODERATION_REVERSAL`,
-- idempotency key deterministe:  
-  `offer:{offerId}:moderation:{decision}:{ruleVersion}`.
+## 10. Plan d'implementation incremental
 
-## 8.3 Idempotence
+1. Mettre a jour la spec (ce document).
+2. Ajouter `PointsClaim` + migration DB.
+3. Ajouter `PointsClaimService` + tests unitaires.
+4. Etendre `PointsLedgerEntry` pour `POINTS_CLAIM_APPROVAL`.
+5. Supprimer le credit automatique de points lors de publication d'offre.
+6. Ajouter endpoints/formulaires de soumission/revue (iteration suivante).
 
-- Toute operation points/moderation sensible passe par une cle d'idempotence.
-- Re-execution du meme evenement ne doit pas dupliquer les ecritures.
+## 11. Definition of Done v1
 
-## 9. Securite & RGPD
-
-- Pas de PII en clair dans logs d'audit.
-- Stocker des IDs techniques, codes raison, timestamps, hash de preuves.
-- Tracer la version de regle (`ruleVersion`) sur chaque decision automatique.
-- Voters obligatoires pour actions moderation/admin.
-- Rate limiting sur soumission offre et actions moderation sensibles.
-
-## 10. Observabilite
-
-Metriques minimales:
-
-- volume de soumissions,
-- taux auto-approve,
-- taux escalation humaine,
-- distribution `riskScore`,
-- delai median de revue humaine,
-- taux de renversement (auto -> correction humaine),
-- nombre d'offres masquees et bannissements.
-
-## 11. Strategie de test v1
-
-## 11.1 Unit tests (obligatoire)
-
-- `ImpactRiskAssessmentServiceTest`: calcul score, seuils, flags critiques.
-- `ModerationServiceTest`: transitions d'etat valides/interdites.
-- `AdminEnforcementServiceTest`: ban temp/permanent, unban.
-- `PointsLedgerServiceTest` (maj): credit sur `APPROVED`, debit sur `MASKED/REJECTED`.
-
-## 11.2 Integration tests
-
-- persistence `ModerationReview` append-only,
-- endpoint submit + auto decision,
-- endpoint review humaine,
-- endpoint admin mask/ban.
-
-## 12. Plan d'implementation incremental
-
-1. Migrations DB (`offer` moderation fields + tables `moderation_review` et `actor_sanction`).
-2. DTO/result objects de decision (`ImpactRiskAssessmentResult`, `AutoDecisionResult`).
-3. Services metier et interfaces providers.
-4. Controllers + formulaires admin/review.
-5. Voters moderation/admin.
-6. Integration ledger points (credit/debit idempotent).
-7. Tests unitaires + integration.
-8. Observabilite (logs/metriques) et ajustement seuils.
-
-## 13. Risques connus
-
-- Faux positifs/faux negatifs IA: mitiges par escalation humaine.
-- Variabilite des APIs externes: mitigee par timeout + fallback + cache court.
-- Effet produit des seuils: calibration necessaire sur donnees reelles.
-
-## 14. Definition of Done v1
-
-- Workflow moderation actif bout-en-bout.
-- Decisions tracables en base.
-- Actions admin mask/ban operationnelles.
-- Ledger points coherent avec decisions moderation.
-- Tests critiques passants.
-- Aucun log PII en clair.
+- Publication d'offre possible sans justificatifs.
+- Gain de points possible uniquement via `PointsClaim` approuve.
+- Ledger coherent et idempotent.
+- Tests unitaires critiques passants.
+- Aucun log metier avec PII en clair.
