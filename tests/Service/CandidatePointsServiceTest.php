@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 
 class CandidatePointsServiceTest extends TestCase
 {
-    public function testAwardApplicationSubmissionPointsCreatesCreditWithImpactBonus(): void
+    public function testAwardApplicationHiredPointsCreatesCreditWithImpactBonus(): void
     {
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $impactScoreRepository = $this->createMock(ImpactScoreRepository::class);
@@ -24,7 +24,10 @@ class CandidatePointsServiceTest extends TestCase
 
         $candidate = (new User())->setEmail('candidate@example.com')->setAccountType(User::ACCOUNT_TYPE_PERSON);
         $offer = (new Offer())->setTitle('Offer')->setDescription('Description');
-        $application = (new Application())->setCandidate($candidate)->setOffer($offer);
+        $application = (new Application())
+            ->setCandidate($candidate)
+            ->setOffer($offer)
+            ->setStatus(Application::STATUS_HIRED);
 
         $this->setEntityId($candidate, 3);
         $this->setEntityId($offer, 9);
@@ -37,7 +40,7 @@ class CandidatePointsServiceTest extends TestCase
 
         $ledgerRepository->expects(self::once())
             ->method('existsByIdempotencyKey')
-            ->with('application_submission_candidate_14')
+            ->with('application_hired_candidate_14')
             ->willReturn(false);
 
         $impactScoreRepository->expects(self::once())
@@ -54,18 +57,18 @@ class CandidatePointsServiceTest extends TestCase
 
                 return 13 === $entry->getPoints()
                     && PointsLedgerEntry::TYPE_CREDIT === $entry->getEntryType()
-                    && PointsLedgerEntry::REFERENCE_APPLICATION_SUBMISSION === $entry->getReferenceType()
-                    && 'application_submission_candidate_14' === $entry->getIdempotencyKey()
+                    && PointsLedgerEntry::REFERENCE_APPLICATION_HIRED === $entry->getReferenceType()
+                    && 'application_hired_candidate_14' === $entry->getIdempotencyKey()
                     && $candidate === $entry->getUser();
             }));
 
-        $entry = $service->awardApplicationSubmissionPoints($application);
+        $entry = $service->awardApplicationHiredPoints($application);
 
         self::assertInstanceOf(PointsLedgerEntry::class, $entry);
         self::assertSame(13, $entry->getPoints());
     }
 
-    public function testAwardApplicationSubmissionPointsReturnsNullForAnonymousCandidate(): void
+    public function testAwardApplicationHiredPointsReturnsNullForAnonymousCandidate(): void
     {
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $impactScoreRepository = $this->createMock(ImpactScoreRepository::class);
@@ -73,7 +76,9 @@ class CandidatePointsServiceTest extends TestCase
         $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $entityManager);
 
         $offer = (new Offer())->setTitle('Offer')->setDescription('Description');
-        $application = (new Application())->setOffer($offer);
+        $application = (new Application())
+            ->setOffer($offer)
+            ->setStatus(Application::STATUS_HIRED);
         $this->setEntityId($offer, 9);
         $this->setEntityId($application, 14);
 
@@ -81,7 +86,31 @@ class CandidatePointsServiceTest extends TestCase
         $impactScoreRepository->expects(self::never())->method('findLatestForOffer');
         $entityManager->expects(self::never())->method('persist');
 
-        self::assertNull($service->awardApplicationSubmissionPoints($application));
+        self::assertNull($service->awardApplicationHiredPoints($application));
+    }
+
+    public function testAwardApplicationHiredPointsReturnsNullWhenApplicationNotHired(): void
+    {
+        $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
+        $impactScoreRepository = $this->createMock(ImpactScoreRepository::class);
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $entityManager);
+
+        $candidate = (new User())->setEmail('candidate@example.com')->setAccountType(User::ACCOUNT_TYPE_PERSON);
+        $offer = (new Offer())->setTitle('Offer')->setDescription('Description');
+        $application = (new Application())
+            ->setCandidate($candidate)
+            ->setOffer($offer)
+            ->setStatus(Application::STATUS_SUBMITTED);
+        $this->setEntityId($candidate, 3);
+        $this->setEntityId($offer, 9);
+        $this->setEntityId($application, 14);
+
+        $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
+        $impactScoreRepository->expects(self::never())->method('findLatestForOffer');
+        $entityManager->expects(self::never())->method('persist');
+
+        self::assertNull($service->awardApplicationHiredPoints($application));
     }
 
     public function testGetCandidateSummaryReturnsBalanceLevelAndHistory(): void
@@ -96,8 +125,8 @@ class CandidatePointsServiceTest extends TestCase
 
         $historyEntry = (new PointsLedgerEntry())
             ->setEntryType(PointsLedgerEntry::TYPE_CREDIT)
-            ->setReferenceType(PointsLedgerEntry::REFERENCE_APPLICATION_SUBMISSION)
-            ->setReason('Candidate points for submitted application')
+            ->setReferenceType(PointsLedgerEntry::REFERENCE_APPLICATION_HIRED)
+            ->setReason('Candidate points for hired application')
             ->setPoints(10);
 
         $ledgerRepository->expects(self::once())

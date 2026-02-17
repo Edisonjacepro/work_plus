@@ -198,4 +198,41 @@ class ApplicationController extends AbstractController
 
         return $response;
     }
+
+    #[Route('/{id}/hire', name: 'application_hire', methods: ['POST'])]
+    public function hire(
+        Request $request,
+        Application $application,
+        CandidatePointsService $candidatePointsService,
+        EntityManagerInterface $entityManager,
+    ): Response {
+        if (!$this->isGranted(ApplicationVoter::HIRE, $application)) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if (!$this->isCsrfTokenValid('hire_application_' . $application->getId(), (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Jeton CSRF invalide.');
+            return $this->redirectToRoute('application_show', ['id' => $application->getId()]);
+        }
+
+        if (Application::STATUS_HIRED === $application->getStatus()) {
+            $this->addFlash('info', 'Cette candidature est deja marquee comme embauchee.');
+            return $this->redirectToRoute('application_show', ['id' => $application->getId()]);
+        }
+
+        $application
+            ->setStatus(Application::STATUS_HIRED)
+            ->setHiredAt(new \DateTimeImmutable());
+
+        $entry = $candidatePointsService->awardApplicationHiredPoints($application);
+        $entityManager->flush();
+
+        if (null !== $entry) {
+            $this->addFlash('success', sprintf('Candidat marque comme embauche. +%d points candidat.', $entry->getPoints()));
+        } else {
+            $this->addFlash('success', 'Candidat marque comme embauche.');
+        }
+
+        return $this->redirectToRoute('application_show', ['id' => $application->getId()]);
+    }
 }
