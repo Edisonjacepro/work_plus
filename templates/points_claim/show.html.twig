@@ -10,7 +10,9 @@
     <p><strong>Points proposes:</strong> {{ claim.requestedPoints }}</p>
     <p><strong>Points approuves:</strong> {{ claim.approvedPoints ?? '-' }}</p>
     <p><strong>Statut:</strong> {{ claim.status }}</p>
+    <p><strong>Date preuve:</strong> {{ claim.evidenceIssuedAt ? claim.evidenceIssuedAt|date('d/m/Y') : '-' }}</p>
     <p><strong>Score justificatifs:</strong> {{ claim.evidenceScore }}</p>
+    <p><strong>Code motif:</strong> {{ claim.decisionReasonCode ?: '-' }}</p>
     <p><strong>Motif decision:</strong> {{ claim.decisionReason ?: '-' }}</p>
     <p><strong>Date creation:</strong> {{ claim.createdAt ? claim.createdAt|date('d/m/Y H:i') : '-' }}</p>
     <p><strong>Date revue:</strong> {{ claim.reviewedAt ? claim.reviewedAt|date('d/m/Y H:i') : '-' }}</p>
@@ -55,14 +57,53 @@
                     <input id="approved_points" type="number" name="approved_points" min="1" value="{{ claim.requestedPoints }}">
                 </div>
                 <div>
-                    <label for="reason">Motif</label>
-                    <input id="reason" type="text" name="reason" maxlength="255">
+                    <label for="reason_code">Code motif</label>
+                    <select id="reason_code" name="reason_code" required>
+                        <option value="">Selectionner un code</option>
+                        {% for label, code in reviewReasonCodes %}
+                            <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="reason_note">Note (optionnel)</label>
+                    <input id="reason_note" type="text" name="reason_note" maxlength="255">
                 </div>
                 <button type="submit" name="decision" value="APPROVE">Approuver</button>
                 <button type="submit" name="decision" value="REJECT">Rejeter</button>
             </form>
         </section>
     {% endif %}
+
+    <section>
+        <h2>Audit des decisions</h2>
+        {% if events is empty %}
+            <p>Aucun evenement de revue pour le moment.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Action</th>
+                        <th>Code motif</th>
+                        <th>Note</th>
+                        <th>Auteur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                        <tr>
+                            <td>{{ event.createdAt ? event.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                            <td>{{ event.action }}</td>
+                            <td>{{ event.reasonCode ?: '-' }}</td>
+                            <td>{{ event.reasonText ?: '-' }}</td>
+                            <td>{{ event.actor ? event.actor.email : 'SYSTEM' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
 
     <p>
         <a href="{{ path('points_claim_index') }}">Retour aux demandes</a>

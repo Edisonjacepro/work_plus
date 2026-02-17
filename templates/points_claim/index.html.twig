@@ -43,6 +43,7 @@
         {{ form_start(form, {attr: {enctype: 'multipart/form-data'}}) }}
             {{ form_row(form.claimType) }}
             {{ form_row(form.offer) }}
+            {{ form_row(form.evidenceIssuedAt) }}
             {{ form_row(form.evidenceFiles) }}
             <button type="submit">Envoyer mes preuves</button>
         {{ form_end(form) }}
@@ -58,6 +59,7 @@
                     <tr>
                         <th>Date</th>
                         <th>Type</th>
+                        <th>Date preuve</th>
                         <th>Statut</th>
                         <th>Score</th>
                         <th>Points proposes</th>
@@ -70,6 +72,7 @@
                         <tr>
                             <td>{{ claim.createdAt ? claim.createdAt|date('d/m/Y H:i') : '-' }}</td>
                             <td>{{ claim.claimType }}</td>
+                            <td>{{ claim.evidenceIssuedAt ? claim.evidenceIssuedAt|date('d/m/Y') : '-' }}</td>
                             <td>{{ claim.status }}</td>
                             <td>{{ claim.evidenceScore }}</td>
                             <td>{{ claim.requestedPoints }}</td>

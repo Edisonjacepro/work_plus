@@ -25,6 +25,14 @@ class PointsClaim
 
     public const RULE_VERSION_V1 = 'points_claim_v1_2026_02';
 
+    public const REASON_CODE_AUTO_APPROVED_SCORE = 'AUTO_APPROVED_SCORE';
+    public const REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE = 'INSUFFICIENT_EVIDENCE_SCORE';
+    public const REASON_CODE_NEEDS_HUMAN_REVIEW = 'NEEDS_HUMAN_REVIEW';
+    public const REASON_CODE_DUPLICATE_EVIDENCE_FILE = 'DUPLICATE_EVIDENCE_FILE';
+    public const REASON_CODE_EVIDENCE_TOO_OLD = 'EVIDENCE_TOO_OLD';
+    public const REASON_CODE_APPROVED_BY_REVIEWER = 'APPROVED_BY_REVIEWER';
+    public const REASON_CODE_REJECTED_BY_REVIEWER = 'REJECTED_BY_REVIEWER';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -73,6 +81,12 @@ class PointsClaim
 
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $decisionReason = null;
+
+    #[ORM\Column(length: 80, nullable: true)]
+    private ?string $decisionReasonCode = null;
+
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $evidenceIssuedAt = null;
 
     #[ORM\Column(length: 40)]
     private string $ruleVersion = self::RULE_VERSION_V1;
@@ -214,6 +228,30 @@ class PointsClaim
     public function setDecisionReason(?string $decisionReason): static
     {
         $this->decisionReason = $decisionReason;
+
+        return $this;
+    }
+
+    public function getDecisionReasonCode(): ?string
+    {
+        return $this->decisionReasonCode;
+    }
+
+    public function setDecisionReasonCode(?string $decisionReasonCode): static
+    {
+        $this->decisionReasonCode = $decisionReasonCode;
+
+        return $this;
+    }
+
+    public function getEvidenceIssuedAt(): ?\DateTimeImmutable
+    {
+        return $this->evidenceIssuedAt;
+    }
+
+    public function setEvidenceIssuedAt(?\DateTimeImmutable $evidenceIssuedAt): static
+    {
+        $this->evidenceIssuedAt = $evidenceIssuedAt;
 
         return $this;
     }

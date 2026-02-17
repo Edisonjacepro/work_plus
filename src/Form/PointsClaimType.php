@@ -7,6 +7,7 @@ use App\Entity\PointsClaim;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -36,6 +37,11 @@ class PointsClaimType extends AbstractType
                     return sprintf('#%d - %s', (int) $offer->getId(), (string) $offer->getTitle());
                 },
                 'label' => 'Offre liee (optionnel)',
+            ])
+            ->add('evidenceIssuedAt', DateType::class, [
+                'label' => 'Date de la preuve',
+                'widget' => 'single_text',
+                'required' => true,
             ])
             ->add('evidenceFiles', FileType::class, [
                 'label' => 'Pieces justificatives',

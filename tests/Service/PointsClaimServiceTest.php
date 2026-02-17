@@ -4,6 +4,7 @@ namespace App\Tests\Service;
 
 use App\Entity\Company;
 use App\Entity\PointsClaim;
+use App\Entity\PointsClaimReviewEvent;
 use App\Entity\PointsLedgerEntry;
 use App\Entity\User;
 use App\Repository\PointsClaimRepository;
@@ -49,11 +50,17 @@ class PointsClaimServiceTest extends TestCase
         $service = new PointsClaimService($claimRepository, $ledgerRepository, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
+        $this->setEntityId($company, 7);
 
         $claimRepository->expects(self::once())
             ->method('findOneByIdempotencyKey')
             ->with('claim-key-2')
             ->willReturn(null);
+
+        $claimRepository->expects(self::exactly(4))
+            ->method('hasEvidenceHashForCompany')
+            ->with(7, self::callback(static fn (mixed $value): bool => is_string($value)))
+            ->willReturn(false);
 
         $ledgerRepository->expects(self::once())
             ->method('existsByIdempotencyKey')
@@ -61,7 +68,7 @@ class PointsClaimServiceTest extends TestCase
             ->willReturn(false);
 
         $persisted = [];
-        $entityManager->expects(self::exactly(2))
+        $entityManager->expects(self::exactly(4))
             ->method('persist')
             ->willReturnCallback(static function (mixed $entity) use (&$persisted): void {
                 $persisted[] = $entity;
@@ -71,13 +78,14 @@ class PointsClaimServiceTest extends TestCase
             $company,
             PointsClaim::CLAIM_TYPE_TRAINING,
             [
-                ['valid' => true],
-                ['valid' => true],
-                ['valid' => true],
-                ['valid' => true],
+                ['valid' => true, 'fileHash' => 'h1'],
+                ['valid' => true, 'fileHash' => 'h2'],
+                ['valid' => true, 'fileHash' => 'h3'],
+                ['valid' => true, 'fileHash' => 'h4'],
             ],
             'claim-key-2',
             null,
+            new \DateTimeImmutable('today'),
             [
                 'coherenceOk' => true,
                 'checks' => [
@@ -93,8 +101,11 @@ class PointsClaimServiceTest extends TestCase
         self::assertSame(100, $claim->getEvidenceScore());
         self::assertSame(25, $claim->getApprovedPoints());
         self::assertSame(25, $claim->getRequestedPoints());
-        self::assertCount(2, $persisted);
-        self::assertInstanceOf(PointsLedgerEntry::class, $persisted[1]);
+        self::assertSame(PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE, $claim->getDecisionReasonCode());
+        self::assertCount(4, $persisted);
+        self::assertInstanceOf(PointsClaimReviewEvent::class, $persisted[1]);
+        self::assertInstanceOf(PointsClaimReviewEvent::class, $persisted[2]);
+        self::assertInstanceOf(PointsLedgerEntry::class, $persisted[3]);
     }
 
     public function testSubmitSetsInReviewForMediumEvidenceScore(): void
@@ -105,33 +116,107 @@ class PointsClaimServiceTest extends TestCase
         $service = new PointsClaimService($claimRepository, $ledgerRepository, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
+        $this->setEntityId($company, 8);
 
         $claimRepository->expects(self::once())
             ->method('findOneByIdempotencyKey')
             ->with('claim-key-3')
             ->willReturn(null);
 
+        $claimRepository->expects(self::exactly(4))
+            ->method('hasEvidenceHashForCompany')
+            ->with(8, self::callback(static fn (mixed $value): bool => is_string($value)))
+            ->willReturn(false);
+
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
-        $entityManager->expects(self::once())->method('persist');
+        $entityManager->expects(self::exactly(3))->method('persist');
 
         $claim = $service->submit(
             $company,
             PointsClaim::CLAIM_TYPE_VOLUNTEERING,
             [
-                ['valid' => true],
-                ['valid' => false],
-                ['valid' => false],
-                ['valid' => false],
+                ['valid' => true, 'fileHash' => 'm1'],
+                ['valid' => false, 'fileHash' => 'm2'],
+                ['valid' => false, 'fileHash' => 'm3'],
+                ['valid' => false, 'fileHash' => 'm4'],
             ],
             'claim-key-3',
             null,
+            new \DateTimeImmutable('today'),
             null,
         );
 
         self::assertSame(PointsClaim::STATUS_IN_REVIEW, $claim->getStatus());
         self::assertSame(45, $claim->getEvidenceScore());
         self::assertSame(11, $claim->getRequestedPoints());
+        self::assertSame(PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW, $claim->getDecisionReasonCode());
         self::assertNull($claim->getApprovedPoints());
+    }
+
+    public function testSubmitRejectsWhenEvidenceDateTooOld(): void
+    {
+        $claimRepository = $this->createMock(PointsClaimRepository::class);
+        $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $entityManager);
+
+        $company = (new Company())->setName('Impact Co');
+        $this->setEntityId($company, 9);
+
+        $claimRepository->method('findOneByIdempotencyKey')->willReturn(null);
+        $claimRepository->method('hasEvidenceHashForCompany')->willReturn(false);
+        $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
+        $entityManager->expects(self::exactly(3))->method('persist');
+
+        $claim = $service->submit(
+            $company,
+            PointsClaim::CLAIM_TYPE_CERTIFICATION,
+            [
+                ['valid' => true, 'fileHash' => 'o1'],
+            ],
+            'claim-key-old',
+            null,
+            (new \DateTimeImmutable('today'))->modify('-3 years'),
+            null,
+        );
+
+        self::assertSame(PointsClaim::STATUS_REJECTED, $claim->getStatus());
+        self::assertSame(PointsClaim::REASON_CODE_EVIDENCE_TOO_OLD, $claim->getDecisionReasonCode());
+    }
+
+    public function testSubmitRejectsWhenDuplicateEvidenceHashDetected(): void
+    {
+        $claimRepository = $this->createMock(PointsClaimRepository::class);
+        $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $entityManager);
+
+        $company = (new Company())->setName('Impact Co');
+        $this->setEntityId($company, 11);
+
+        $claimRepository->method('findOneByIdempotencyKey')->willReturn(null);
+        $claimRepository->expects(self::once())
+            ->method('hasEvidenceHashForCompany')
+            ->with(11, 'dup-hash')
+            ->willReturn(true);
+
+        $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
+        $entityManager->expects(self::exactly(3))->method('persist');
+
+        $claim = $service->submit(
+            $company,
+            PointsClaim::CLAIM_TYPE_CERTIFICATION,
+            [
+                ['valid' => true, 'fileHash' => 'dup-hash'],
+            ],
+            'claim-key-dup',
+            null,
+            new \DateTimeImmutable('today'),
+            null,
+        );
+
+        self::assertSame(PointsClaim::STATUS_REJECTED, $claim->getStatus());
+        self::assertSame(PointsClaim::REASON_CODE_DUPLICATE_EVIDENCE_FILE, $claim->getDecisionReasonCode());
     }
 
     public function testApproveCreatesLedgerEntryForClaimInReview(): void
@@ -157,22 +242,28 @@ class PointsClaimServiceTest extends TestCase
             ->willReturn(false);
 
         $persisted = [];
-        $entityManager->expects(self::exactly(2))
+        $entityManager->expects(self::exactly(3))
             ->method('persist')
             ->willReturnCallback(static function (mixed $entity) use (&$persisted): void {
                 $persisted[] = $entity;
             });
 
-        $entry = $service->approve($claim, $reviewer, 22, 'Manual approval after review');
+        $entry = $service->approve(
+            claim: $claim,
+            reviewer: $reviewer,
+            reasonCode: PointsClaim::REASON_CODE_APPROVED_BY_REVIEWER,
+            approvedPoints: 22,
+            reasonNote: 'Manual approval after review',
+        );
 
         self::assertInstanceOf(PointsLedgerEntry::class, $entry);
         self::assertSame(PointsClaim::STATUS_APPROVED, $claim->getStatus());
         self::assertSame(22, $claim->getApprovedPoints());
         self::assertSame($reviewer, $claim->getReviewedBy());
-        self::assertCount(2, $persisted);
+        self::assertCount(3, $persisted);
     }
 
-    public function testRejectRequiresReason(): void
+    public function testRejectRequiresReasonCode(): void
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
@@ -189,6 +280,13 @@ class PointsClaimServiceTest extends TestCase
         $entityManager->expects(self::never())->method('persist');
 
         $this->expectException(\InvalidArgumentException::class);
-        $service->reject($claim, $reviewer, '   ');
+        $service->reject($claim, $reviewer, '   ', 'comment');
+    }
+
+    private function setEntityId(object $entity, int $id): void
+    {
+        $reflection = new \ReflectionProperty($entity::class, 'id');
+        $reflection->setAccessible(true);
+        $reflection->setValue($entity, $id);
     }
 }
