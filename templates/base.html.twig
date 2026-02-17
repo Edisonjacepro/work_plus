@@ -15,25 +15,58 @@
         <header class="site-header">
             <div class="container">
                 <a class="brand" href="{{ path('home') }}">Work+</a>
-                <nav class="nav">
-                    <a class="nav-link" href="{{ path('company_index') }}">Entreprises</a>
-                    <a class="nav-link" href="{{ path('offer_index') }}">Offres</a>
-                    <a class="nav-link" href="{{ path('pricing_index') }}">Tarifs</a>
+                <nav class="nav" aria-label="Navigation principale">
+                    <details class="nav-dropdown">
+                        <summary class="nav-link">Decouvrir</summary>
+                        <div class="nav-submenu">
+                            <a class="nav-submenu-link" href="{{ path('company_index') }}">Entreprises</a>
+                            <a class="nav-submenu-link" href="{{ path('offer_index') }}">Offres</a>
+                            <a class="nav-submenu-link" href="{{ path('pricing_index') }}">Tarifs</a>
+                        </div>
+                    </details>
+
                     {% if app.user and app.user.isCompany %}
-                        {% if app.user.company %}
-                            <a class="nav-link" href="{{ path('company_show', {id: app.user.company.id}) }}">Mon entreprise</a>
-                        {% else %}
-                            <a class="nav-link" href="{{ path('company_new') }}">Mon entreprise</a>
-                        {% endif %}
-                        <a class="nav-link" href="{{ path('recruiter_offer_index') }}">Mes offres</a>
-                        <a class="nav-link" href="{{ path('application_recruiter_index') }}">Candidatures</a>
+                        <details class="nav-dropdown">
+                            <summary class="nav-link">Espace entreprise</summary>
+                            <div class="nav-submenu">
+                                {% if app.user.company %}
+                                    <a class="nav-submenu-link" href="{{ path('company_show', {id: app.user.company.id}) }}">Mon entreprise</a>
+                                {% else %}
+                                    <a class="nav-submenu-link" href="{{ path('company_new') }}">Mon entreprise</a>
+                                {% endif %}
+                                <a class="nav-submenu-link" href="{{ path('recruiter_offer_index') }}">Mes offres</a>
+                                <a class="nav-submenu-link" href="{{ path('points_claim_index') }}">Mon impact</a>
+                                <a class="nav-submenu-link" href="{{ path('application_recruiter_index') }}">Candidatures</a>
+                            </div>
+                        </details>
                     {% endif %}
+
                     {% if app.user and app.user.isPerson %}
-                        <a class="nav-link" href="{{ path('application_candidate_index') }}">Mes candidatures</a>
+                        <details class="nav-dropdown">
+                            <summary class="nav-link">Mon espace</summary>
+                            <div class="nav-submenu">
+                                <a class="nav-submenu-link" href="{{ path('application_candidate_index') }}">Mes candidatures</a>
+                            </div>
+                        </details>
                     {% endif %}
+
+                    {% if app.user and is_granted('ROLE_ADMIN') %}
+                        <details class="nav-dropdown">
+                            <summary class="nav-link">Admin</summary>
+                            <div class="nav-submenu">
+                                <a class="nav-submenu-link" href="{{ path('points_claim_review_index') }}">Revue points</a>
+                            </div>
+                        </details>
+                    {% endif %}
+
                     {% if app.user %}
-                        <span class="nav-link">{{ app.user.email }}</span>
-                        <a class="nav-link" href="{{ path('app_logout') }}">Déconnexion</a>
+                        <details class="nav-dropdown">
+                            <summary class="nav-link">Compte</summary>
+                            <div class="nav-submenu nav-submenu-account">
+                                <span class="nav-submenu-text">{{ app.user.email }}</span>
+                                <a class="nav-submenu-link" href="{{ path('app_logout') }}">Deconnexion</a>
+                            </div>
+                        </details>
                     {% else %}
                         <a class="nav-link" href="{{ path('app_login') }}">Connexion</a>
                     {% endif %}
