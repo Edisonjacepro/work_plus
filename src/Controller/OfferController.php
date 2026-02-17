@@ -13,7 +13,6 @@ use App\Security\OfferVoter;
 use App\Service\CandidatePointsService;
 use App\Service\ImpactScoreService;
 use App\Service\OfferImpactScoreResolver;
-use App\Service\PointsLedgerService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -269,8 +268,7 @@ class OfferController extends AbstractController
         Request $request,
         Offer $offer,
         EntityManagerInterface $entityManager,
-        ImpactScoreService $impactScoreService,
-        PointsLedgerService $pointsLedgerService
+        ImpactScoreService $impactScoreService
     ): Response
     {
         if ($this->isCsrfTokenValid('publish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
@@ -282,14 +280,10 @@ class OfferController extends AbstractController
             $offer->setStatus(Offer::STATUS_PUBLISHED);
             $offer->setPublishedAt(new \DateTimeImmutable());
 
-            $impactScore = $impactScoreService->computeAndStore($offer);
-            $ledgerEntry = $pointsLedgerService->awardOfferPublicationPoints($offer, $impactScore);
+            $impactScoreService->computeAndStore($offer);
 
             $entityManager->flush();
-
-            if (null !== $ledgerEntry) {
-                $this->addFlash('success', sprintf('Publication reussie. +%d points d impact.', $ledgerEntry->getPoints()));
-            }
+            $this->addFlash('success', 'Publication reussie.');
         }
 
         return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
