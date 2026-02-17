@@ -27,7 +27,6 @@ class PointsClaimService
     public function submit(
         Company $company,
         string $claimType,
-        int $requestedPoints,
         array $evidenceDocuments,
         string $idempotencyKey,
         ?Offer $offer = null,
@@ -43,21 +42,18 @@ class PointsClaimService
             return $existing;
         }
 
-        if ($requestedPoints <= 0) {
-            throw new \InvalidArgumentException('Requested points must be greater than zero.');
-        }
-
         if ([] === $evidenceDocuments) {
             throw new \InvalidArgumentException('At least one supporting document is required.');
         }
 
         $evidenceScore = $this->computeEvidenceScore($evidenceDocuments, $externalChecks);
+        $suggestedPoints = $this->computeSuggestedPoints($evidenceScore);
 
         $claim = (new PointsClaim())
             ->setCompany($company)
             ->setOffer($offer)
             ->setClaimType($claimType)
-            ->setRequestedPoints($requestedPoints)
+            ->setRequestedPoints($suggestedPoints)
             ->setEvidenceDocuments($evidenceDocuments)
             ->setExternalChecks($externalChecks)
             ->setEvidenceScore($evidenceScore)
@@ -67,7 +63,7 @@ class PointsClaimService
         if ($evidenceScore >= 70) {
             $claim
                 ->setStatus(PointsClaim::STATUS_APPROVED)
-                ->setApprovedPoints($requestedPoints)
+                ->setApprovedPoints($suggestedPoints)
                 ->setDecisionReason('AUTO_APPROVED_EVIDENCE_SCORE')
                 ->setReviewedAt(new \DateTimeImmutable());
         } elseif ($evidenceScore >= 40) {
@@ -82,7 +78,7 @@ class PointsClaimService
         $this->entityManager->persist($claim);
 
         if (PointsClaim::STATUS_APPROVED === $claim->getStatus()) {
-            $this->createApprovalLedgerEntry($claim, $requestedPoints);
+            $this->createApprovalLedgerEntry($claim, $suggestedPoints);
         }
 
         return $claim;
@@ -179,6 +175,13 @@ class PointsClaimService
         $score = $completenessScore + $technicalScore + $coherenceScore + $apiScore;
 
         return max(0, min(100, $score));
+    }
+
+    private function computeSuggestedPoints(int $evidenceScore): int
+    {
+        $suggested = (int) round($evidenceScore * 0.25);
+
+        return max(5, min(30, $suggested));
     }
 
     private function createApprovalLedgerEntry(PointsClaim $claim, int $points): ?PointsLedgerEntry

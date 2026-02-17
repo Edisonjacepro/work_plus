@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Demande de points #{{ claim.id }}{% endblock %}
+
+{% block body %}
+    <h1>Demande de points #{{ claim.id }}</h1>
+
+    <p><strong>Entreprise:</strong> {{ claim.company.name }}</p>
+    <p><strong>Type:</strong> {{ claim.claimType }}</p>
+    <p><strong>Points proposes:</strong> {{ claim.requestedPoints }}</p>
+    <p><strong>Points approuves:</strong> {{ claim.approvedPoints ?? '-' }}</p>
+    <p><strong>Statut:</strong> {{ claim.status }}</p>
+    <p><strong>Score justificatifs:</strong> {{ claim.evidenceScore }}</p>
+    <p><strong>Motif decision:</strong> {{ claim.decisionReason ?: '-' }}</p>
+    <p><strong>Date creation:</strong> {{ claim.createdAt ? claim.createdAt|date('d/m/Y H:i') : '-' }}</p>
+    <p><strong>Date revue:</strong> {{ claim.reviewedAt ? claim.reviewedAt|date('d/m/Y H:i') : '-' }}</p>
+
+    <section>
+        <h2>Justificatifs</h2>
+        {% if claim.evidenceDocuments is empty %}
+            <p>Aucun justificatif.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Nom</th>
+                        <th>Type</th>
+                        <th>Taille</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for document in claim.evidenceDocuments %}
+                        <tr>
+                            <td>{{ loop.index0 }}</td>
+                            <td>{{ document.originalName ?? '-' }}</td>
+                            <td>{{ document.mimeType ?? '-' }}</td>
+                            <td>{{ document.size ?? 0 }} o</td>
+                            <td><a href="{{ path('points_claim_evidence_download', {id: claim.id, index: loop.index0}) }}">Telecharger</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </section>
+
+    {% if is_granted('ROLE_ADMIN') and claim.status in ['SUBMITTED', 'IN_REVIEW'] %}
+        <section>
+            <h2>Revue admin</h2>
+            <form method="post" action="{{ path('points_claim_review', {id: claim.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('review_points_claim_' ~ claim.id) }}">
+                <div>
+                    <label for="approved_points">Points approuves (optionnel)</label>
+                    <input id="approved_points" type="number" name="approved_points" min="1" value="{{ claim.requestedPoints }}">
+                </div>
+                <div>
+                    <label for="reason">Motif</label>
+                    <input id="reason" type="text" name="reason" maxlength="255">
+                </div>
+                <button type="submit" name="decision" value="APPROVE">Approuver</button>
+                <button type="submit" name="decision" value="REJECT">Rejeter</button>
+            </form>
+        </section>
+    {% endif %}
+
+    <p>
+        <a href="{{ path('points_claim_index') }}">Retour aux demandes</a>
+        {% if is_granted('ROLE_ADMIN') %}
+            | <a href="{{ path('points_claim_review_index') }}">File de revue</a>
+        {% endif %}
+    </p>
+{% endblock %}

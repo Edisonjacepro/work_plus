@@ -6,6 +6,7 @@
 parameters:
     app.cv_upload_dir: '%kernel.project_dir%/public/uploads/cv'
     app.application_attachment_dir: '%kernel.project_dir%/var/uploads/applications'
+    app.points_claim_upload_dir: '%kernel.project_dir%/var/uploads/points-claims'
     app.mailer_from: 'no-reply@workplus.local'
     app.company_search_api_url: 'https://recherche-entreprises.api.gouv.fr/search'
     app.geo_api_url: 'https://geo.api.gouv.fr/communes'
@@ -19,6 +20,7 @@ services:
         bind:
             string $cvUploadDir: '%app.cv_upload_dir%'
             string $applicationAttachmentDir: '%app.application_attachment_dir%'
+            string $pointsClaimUploadDir: '%app.points_claim_upload_dir%'
             string $mailerFrom: '%app.mailer_from%'
             string $companySearchApiUrl: '%app.company_search_api_url%'
             string $geoApiUrl: '%app.geo_api_url%'

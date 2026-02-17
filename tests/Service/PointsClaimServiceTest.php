@@ -34,7 +34,6 @@ class PointsClaimServiceTest extends TestCase
         $result = $service->submit(
             new Company(),
             PointsClaim::CLAIM_TYPE_OTHER,
-            20,
             [['valid' => true]],
             'claim-key-1',
         );
@@ -71,7 +70,6 @@ class PointsClaimServiceTest extends TestCase
         $claim = $service->submit(
             $company,
             PointsClaim::CLAIM_TYPE_TRAINING,
-            45,
             [
                 ['valid' => true],
                 ['valid' => true],
@@ -93,7 +91,8 @@ class PointsClaimServiceTest extends TestCase
 
         self::assertSame(PointsClaim::STATUS_APPROVED, $claim->getStatus());
         self::assertSame(100, $claim->getEvidenceScore());
-        self::assertSame(45, $claim->getApprovedPoints());
+        self::assertSame(25, $claim->getApprovedPoints());
+        self::assertSame(25, $claim->getRequestedPoints());
         self::assertCount(2, $persisted);
         self::assertInstanceOf(PointsLedgerEntry::class, $persisted[1]);
     }
@@ -118,7 +117,6 @@ class PointsClaimServiceTest extends TestCase
         $claim = $service->submit(
             $company,
             PointsClaim::CLAIM_TYPE_VOLUNTEERING,
-            15,
             [
                 ['valid' => true],
                 ['valid' => false],
@@ -132,6 +130,7 @@ class PointsClaimServiceTest extends TestCase
 
         self::assertSame(PointsClaim::STATUS_IN_REVIEW, $claim->getStatus());
         self::assertSame(45, $claim->getEvidenceScore());
+        self::assertSame(11, $claim->getRequestedPoints());
         self::assertNull($claim->getApprovedPoints());
     }
 

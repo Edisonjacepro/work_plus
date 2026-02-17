@@ -57,14 +57,12 @@ class PointsClaim
     private string $status = self::STATUS_SUBMITTED;
 
     #[ORM\Column]
-    #[Assert\GreaterThan(0)]
     private int $requestedPoints = 0;
 
     #[ORM\Column(nullable: true)]
     private ?int $approvedPoints = null;
 
     #[ORM\Column(type: 'json')]
-    #[Assert\Count(min: 1, minMessage: 'Au moins un justificatif est requis pour demander des points.')]
     private array $evidenceDocuments = [];
 
     #[ORM\Column(type: 'json', nullable: true)]

@@ -27,6 +27,9 @@
     <section>
         <h2>Points impact entreprise</h2>
         <p><strong>Total cumule :</strong> {{ impactPointsBalance }}</p>
+        {% if app.user and app.user.isCompany and app.user.company and app.user.company.id == company.id %}
+            <p><a href="{{ path('points_claim_index') }}">Ouvrir mon espace impact</a></p>
+        {% endif %}
 
         <h3>Detail des points</h3>
         {% if companyPointsHistory is empty %}
