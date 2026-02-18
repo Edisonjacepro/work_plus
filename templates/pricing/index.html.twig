@@ -6,9 +6,17 @@
     <section>
         <h1>Tarifs Work+</h1>
         <p>
-            Trois formules simples pour les recruteurs, avec un positionnement prix volontairement accessible.
-            Les fonctionnalites "Nouveau" sont planifiees pour les prochaines iterations.
+            Trois formules simples pour les recruteurs.
+            Le module de paiement est pret pour Stripe via cles API, avec mode fake actif par defaut.
         </p>
+        {% if isRecruiterWithCompany %}
+            <p>
+                <strong>Formule actuelle:</strong> {{ activePlanCode }}
+                {% if activePlanExpiresAt %}
+                    (valide jusqu au {{ activePlanExpiresAt|date('d/m/Y H:i') }})
+                {% endif %}
+            </p>
+        {% endif %}
     </section>
 
     <section class="pricing-grid">
@@ -26,7 +34,22 @@
                     {% endfor %}
                 </ul>
 
-                <a class="btn" href="{{ path(plan.ctaRoute) }}">{{ plan.ctaLabel }}</a>
+                {% if isRecruiterWithCompany %}
+                    {% if plan.isCurrent %}
+                        <span class="status-badge status-published">Actif</span>
+                    {% elseif plan.isPaid %}
+                        <form method="post" action="{{ path('billing_checkout', {planCode: plan.code}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('billing_checkout_' ~ plan.code) }}">
+                            <button class="btn" type="submit">Payer {{ plan.name }}</button>
+                        </form>
+                    {% else %}
+                        <span class="status-badge status-draft">Plan gratuit</span>
+                    {% endif %}
+                {% elseif app.user %}
+                    <p>Ce module est reserve aux comptes recruteur.</p>
+                {% else %}
+                    <a class="btn" href="{{ path('app_register_company') }}">Creer un compte recruteur</a>
+                {% endif %}
             </article>
         {% endfor %}
     </section>

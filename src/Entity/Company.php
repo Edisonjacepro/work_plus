@@ -14,6 +14,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\HasLifecycleCallbacks]
 class Company
 {
+    public const RECRUITER_PLAN_STARTER = 'STARTER';
+    public const RECRUITER_PLAN_GROWTH = 'GROWTH';
+    public const RECRUITER_PLAN_SCALE = 'SCALE';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -43,6 +47,15 @@ class Company
 
     #[ORM\Column]
     private ?\DateTimeImmutable $updatedAt = null;
+
+    #[ORM\Column(length: 20, options: ['default' => self::RECRUITER_PLAN_STARTER])]
+    private string $recruiterPlanCode = self::RECRUITER_PLAN_STARTER;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $recruiterPlanStartedAt = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $recruiterPlanExpiresAt = null;
 
     /**
      * @var Collection<int, Offer>
@@ -147,6 +160,53 @@ class Company
     public function getUpdatedAt(): ?\DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    public function getRecruiterPlanCode(): string
+    {
+        return $this->recruiterPlanCode;
+    }
+
+    public function setRecruiterPlanCode(string $recruiterPlanCode): static
+    {
+        $this->recruiterPlanCode = $recruiterPlanCode;
+
+        return $this;
+    }
+
+    public function getRecruiterPlanStartedAt(): ?\DateTimeImmutable
+    {
+        return $this->recruiterPlanStartedAt;
+    }
+
+    public function setRecruiterPlanStartedAt(?\DateTimeImmutable $recruiterPlanStartedAt): static
+    {
+        $this->recruiterPlanStartedAt = $recruiterPlanStartedAt;
+
+        return $this;
+    }
+
+    public function getRecruiterPlanExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->recruiterPlanExpiresAt;
+    }
+
+    public function setRecruiterPlanExpiresAt(?\DateTimeImmutable $recruiterPlanExpiresAt): static
+    {
+        $this->recruiterPlanExpiresAt = $recruiterPlanExpiresAt;
+
+        return $this;
+    }
+
+    public function hasActivePaidPlan(?\DateTimeImmutable $at = null): bool
+    {
+        if (self::RECRUITER_PLAN_STARTER === $this->recruiterPlanCode) {
+            return false;
+        }
+
+        $now = $at ?? new \DateTimeImmutable();
+        return $this->recruiterPlanExpiresAt instanceof \DateTimeImmutable
+            && $this->recruiterPlanExpiresAt > $now;
     }
 
     /**

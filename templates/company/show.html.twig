@@ -20,6 +20,12 @@
         <p><strong>Ville :</strong> {{ company.city ?: '-' }}</p>
         <p><strong>Secteur :</strong> {{ company.sector ?: '-' }}</p>
         <p><strong>Taille :</strong> {{ company.companySize ?: '-' }}</p>
+        <p>
+            <strong>Formule recruteur :</strong> {{ company.recruiterPlanCode }}
+            {% if company.recruiterPlanExpiresAt %}
+                (jusqu au {{ company.recruiterPlanExpiresAt|date('d/m/Y H:i') }})
+            {% endif %}
+        </p>
         <p><strong>Date creation :</strong> {{ company.createdAt ? company.createdAt|date('d/m/Y H:i') : '-' }}</p>
         <p><strong>Derniere mise a jour :</strong> {{ company.updatedAt ? company.updatedAt|date('d/m/Y H:i') : '-' }}</p>
     </section>

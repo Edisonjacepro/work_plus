@@ -11,6 +11,8 @@ parameters:
     app.company_search_api_url: 'https://recherche-entreprises.api.gouv.fr/search'
     app.geo_api_url: 'https://geo.api.gouv.fr/communes'
     app.external_api_timeout_seconds: 2
+    app.billing_provider: '%env(BILLING_PROVIDER)%'
+    app.billing_webhook_tolerance_seconds: 300
 
 services:
     # default configuration for services in *this* file
@@ -25,6 +27,7 @@ services:
             string $companySearchApiUrl: '%app.company_search_api_url%'
             string $geoApiUrl: '%app.geo_api_url%'
             int $externalApiTimeoutSeconds: '%app.external_api_timeout_seconds%'
+            string $billingProvider: '%app.billing_provider%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
@@ -36,6 +39,18 @@ services:
             - '../src/Kernel.php'
 
     App\Service\ImpactEvidenceProviderInterface: '@App\Service\PublicApiEvidenceService'
+
+    App\Service\Billing\StripeCheckoutGateway:
+        arguments:
+            $stripeSecretKey: '%env(string:STRIPE_SECRET_KEY)%'
+            $stripeWebhookSecret: '%env(string:STRIPE_WEBHOOK_SECRET)%'
+            $webhookToleranceSeconds: '%app.billing_webhook_tolerance_seconds%'
+
+    App\Service\Billing\BillingGatewayRegistry:
+        arguments:
+            $gateways:
+                - '@App\Service\Billing\FakeCheckoutGateway'
+                - '@App\Service\Billing\StripeCheckoutGateway'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
