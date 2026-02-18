@@ -1,0 +1,65 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Comprendre les points{% endblock %}
+
+{% block body %}
+    <section>
+        <h1>Comprendre le systeme de points Work+</h1>
+        <p>
+            Les points valorisent les actions a impact positif sur la plateforme.
+            Ils sont traces dans un ledger (journal) pour rester auditables et recalculables.
+        </p>
+    </section>
+
+    <section>
+        <h2>Pour les candidats</h2>
+        <p>
+            Vous gagnez des points quand une candidature est marquee comme embauchee.
+            Le calcul actuel suit cette formule:
+        </p>
+        <ul>
+            <li>Base fixe: 5 points.</li>
+            <li>Bonus impact: 10% du score d impact de l offre, plafonne a 10 points.</li>
+            <li>Total candidat par embauche: entre 5 et 15 points.</li>
+        </ul>
+        <p>
+            Votre total de points definit aussi votre niveau:
+            Bronze (&lt;100), Silver (>=100), Gold (>=300), Impact Leader (>=700).
+        </p>
+    </section>
+
+    <section>
+        <h2>Pour les entreprises</h2>
+        <h3>1. Publication d offres</h3>
+        <p>
+            A la publication d une offre, des points peuvent etre attribues automatiquement selon son score d impact.
+        </p>
+        <ul>
+            <li>Base: score global d impact de l offre.</li>
+            <li>Bonus +10 si les 3 dimensions (societe, biodiversite, GES) sont >= 40.</li>
+            <li>Bonus +5 si la confiance du score est >= 0.85.</li>
+            <li>Plafond: 120 points par offre.</li>
+        </ul>
+
+        <h3>2. Envoi de preuves d impact</h3>
+        <p>
+            Vous pouvez envoyer des justificatifs (formation, benevolat, certification, autre) pour demander des points.
+        </p>
+        <ul>
+            <li>Un score de preuve est calcule de 0 a 100.</li>
+            <li>Points proposes: environ 25% du score, avec un minimum de 5 et un maximum de 30.</li>
+            <li>Decision auto: approuve si score >= 70, revue humaine entre 40 et 69, rejet si &lt; 40.</li>
+            <li>Protection anti-fraude: refus des doublons de fichiers et preuves trop anciennes (&gt; 24 mois).</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Transparence et fiabilite</h2>
+        <ul>
+            <li>Chaque attribution cree une ecriture dans le ledger (append-only).</li>
+            <li>Chaque ecriture contient un type, une reference, un motif et une version de regle.</li>
+            <li>Le solde est calcule a partir de l historique, il reste donc recalculable.</li>
+            <li>Les actions sont idempotentes: une meme operation ne credite pas deux fois.</li>
+        </ul>
+    </section>
+{% endblock %}
