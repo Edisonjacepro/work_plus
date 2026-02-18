@@ -19,5 +19,12 @@ class PricingControllerTest extends WebTestCase
         self::assertStringContainsString('Growth', $content);
         self::assertStringContainsString('Scale', $content);
     }
-}
 
+    public function testCheckoutRouteRequiresAuthentication(): void
+    {
+        $client = static::createClient();
+        $client->request('POST', '/billing/checkout/GROWTH');
+
+        self::assertResponseRedirects('/login');
+    }
+}
