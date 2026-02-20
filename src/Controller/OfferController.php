@@ -11,6 +11,7 @@ use App\Repository\OfferRepository;
 use App\Repository\UserRepository;
 use App\Security\OfferVoter;
 use App\Service\ImpactScoreService;
+use App\Service\ModerationService;
 use App\Service\OfferImpactScoreResolver;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -260,7 +261,8 @@ class OfferController extends AbstractController
         Request $request,
         Offer $offer,
         EntityManagerInterface $entityManager,
-        ImpactScoreService $impactScoreService
+        ImpactScoreService $impactScoreService,
+        ModerationService $moderationService,
     ): Response
     {
         if ($this->isCsrfTokenValid('publish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
@@ -269,13 +271,19 @@ class OfferController extends AbstractController
                 return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
             }
 
-            $offer->setStatus(Offer::STATUS_PUBLISHED);
-            $offer->setPublishedAt(new \DateTimeImmutable());
+            $eligibility = $moderationService->moderateForPublication($offer);
 
-            $impactScoreService->computeAndStore($offer);
-
-            $entityManager->flush();
-            $this->addFlash('success', 'Publication reussie.');
+            if ($eligibility->eligible) {
+                $impactScoreService->computeAndStore($offer);
+                $entityManager->flush();
+                $this->addFlash('success', 'Publication validee automatiquement.');
+            } else {
+                $entityManager->flush();
+                $this->addFlash('error', sprintf(
+                    'Publication refusee automatiquement (%s).',
+                    $offer->getModerationReasonCode() ?? 'raison_non_definie',
+                ));
+            }
         }
 
         return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);

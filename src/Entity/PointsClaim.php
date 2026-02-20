@@ -14,7 +14,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 class PointsClaim
 {
     public const STATUS_SUBMITTED = 'SUBMITTED';
-    public const STATUS_IN_REVIEW = 'IN_REVIEW';
     public const STATUS_APPROVED = 'APPROVED';
     public const STATUS_REJECTED = 'REJECTED';
 
@@ -27,7 +26,6 @@ class PointsClaim
 
     public const REASON_CODE_AUTO_APPROVED_SCORE = 'AUTO_APPROVED_SCORE';
     public const REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE = 'INSUFFICIENT_EVIDENCE_SCORE';
-    public const REASON_CODE_NEEDS_HUMAN_REVIEW = 'NEEDS_HUMAN_REVIEW';
     public const REASON_CODE_DUPLICATE_EVIDENCE_FILE = 'DUPLICATE_EVIDENCE_FILE';
     public const REASON_CODE_EVIDENCE_TOO_OLD = 'EVIDENCE_TOO_OLD';
     public const REASON_CODE_APPROVED_BY_REVIEWER = 'APPROVED_BY_REVIEWER';
@@ -58,7 +56,6 @@ class PointsClaim
     #[ORM\Column(length: 20)]
     #[Assert\Choice(choices: [
         self::STATUS_SUBMITTED,
-        self::STATUS_IN_REVIEW,
         self::STATUS_APPROVED,
         self::STATUS_REJECTED,
     ])]

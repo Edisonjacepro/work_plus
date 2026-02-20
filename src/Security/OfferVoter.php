@@ -39,7 +39,11 @@ class OfferVoter extends Voter
         }
 
         if (self::VIEW === $attribute) {
-            if ($subject->isVisible() && Offer::STATUS_PUBLISHED === $subject->getStatus()) {
+            if (
+                $subject->isVisible()
+                && Offer::STATUS_PUBLISHED === $subject->getStatus()
+                && Offer::MODERATION_STATUS_APPROVED === $subject->getModerationStatus()
+            ) {
                 return true;
             }
 

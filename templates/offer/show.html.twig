@@ -12,6 +12,9 @@
     </p>
     {% if app.user and offer.author and app.user.id == offer.author.id %}
         <p><strong>Statut :</strong> {{ offer.status }}</p>
+        <p><strong>Moderation :</strong> {{ offer.moderationStatus }}</p>
+        <p><strong>Code moderation :</strong> {{ offer.moderationReasonCode ?: '-' }}</p>
+        <p><strong>Motif moderation :</strong> {{ offer.moderationReason ?: '-' }}</p>
     {% endif %}
 
     <p>{{ offer.description }}</p>
@@ -64,10 +67,10 @@
 
     {% if offer.status == 'DRAFT' and is_granted('PUBLISH', offer) %}
         <section>
-            <h2>Publier l'offre</h2>
+            <h2>Soumettre a la moderation automatique</h2>
             <form method="post" action="{{ path('offer_publish', {id: offer.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('publish_offer_' ~ offer.id) }}">
-                <button class="btn" type="submit">Publier</button>
+                <button class="btn" type="submit">Lancer la moderation</button>
             </form>
         </section>
     {% endif %}

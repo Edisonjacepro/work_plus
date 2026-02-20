@@ -15,6 +15,13 @@ class Offer
     public const STATUS_DRAFT = 'DRAFT';
     public const STATUS_PUBLISHED = 'PUBLISHED';
 
+    public const MODERATION_STATUS_DRAFT = 'DRAFT';
+    public const MODERATION_STATUS_SUBMITTED = 'SUBMITTED';
+    public const MODERATION_STATUS_APPROVED = 'APPROVED';
+    public const MODERATION_STATUS_REJECTED = 'REJECTED';
+
+    public const MODERATION_RULE_VERSION_V1 = 'offer_moderation_v1_2026_02';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -61,6 +68,30 @@ class Offer
 
     #[ORM\Column(options: ['default' => true])]
     private bool $isVisible = true;
+
+    #[ORM\Column(length: 20)]
+    #[Assert\Choice(choices: [
+        self::MODERATION_STATUS_DRAFT,
+        self::MODERATION_STATUS_SUBMITTED,
+        self::MODERATION_STATUS_APPROVED,
+        self::MODERATION_STATUS_REJECTED,
+    ])]
+    private string $moderationStatus = self::MODERATION_STATUS_DRAFT;
+
+    #[ORM\Column(length: 80, nullable: true)]
+    private ?string $moderationReasonCode = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $moderationReason = null;
+
+    #[ORM\Column(options: ['default' => 0])]
+    private int $moderationScore = 0;
+
+    #[ORM\Column(length: 40)]
+    private string $moderationRuleVersion = self::MODERATION_RULE_VERSION_V1;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $moderatedAt = null;
 
     public function __construct()
     {
@@ -174,6 +205,78 @@ class Offer
     public function setIsVisible(bool $isVisible): static
     {
         $this->isVisible = $isVisible;
+
+        return $this;
+    }
+
+    public function getModerationStatus(): string
+    {
+        return $this->moderationStatus;
+    }
+
+    public function setModerationStatus(string $moderationStatus): static
+    {
+        $this->moderationStatus = $moderationStatus;
+
+        return $this;
+    }
+
+    public function getModerationReasonCode(): ?string
+    {
+        return $this->moderationReasonCode;
+    }
+
+    public function setModerationReasonCode(?string $moderationReasonCode): static
+    {
+        $this->moderationReasonCode = $moderationReasonCode;
+
+        return $this;
+    }
+
+    public function getModerationReason(): ?string
+    {
+        return $this->moderationReason;
+    }
+
+    public function setModerationReason(?string $moderationReason): static
+    {
+        $this->moderationReason = $moderationReason;
+
+        return $this;
+    }
+
+    public function getModerationScore(): int
+    {
+        return $this->moderationScore;
+    }
+
+    public function setModerationScore(int $moderationScore): static
+    {
+        $this->moderationScore = $moderationScore;
+
+        return $this;
+    }
+
+    public function getModerationRuleVersion(): string
+    {
+        return $this->moderationRuleVersion;
+    }
+
+    public function setModerationRuleVersion(string $moderationRuleVersion): static
+    {
+        $this->moderationRuleVersion = $moderationRuleVersion;
+
+        return $this;
+    }
+
+    public function getModeratedAt(): ?\DateTimeImmutable
+    {
+        return $this->moderatedAt;
+    }
+
+    public function setModeratedAt(?\DateTimeImmutable $moderatedAt): static
+    {
+        $this->moderatedAt = $moderatedAt;
 
         return $this;
     }

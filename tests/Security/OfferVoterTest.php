@@ -23,6 +23,7 @@ class OfferVoterTest extends TestCase
     {
         $offer = (new Offer())
             ->setStatus(Offer::STATUS_PUBLISHED)
+            ->setModerationStatus(Offer::MODERATION_STATUS_APPROVED)
             ->setIsVisible(true);
 
         $result = $this->voter->vote(new NullToken(), $offer, [OfferVoter::VIEW]);
@@ -34,6 +35,18 @@ class OfferVoterTest extends TestCase
     {
         $offer = (new Offer())
             ->setStatus(Offer::STATUS_DRAFT)
+            ->setIsVisible(true);
+
+        $result = $this->voter->vote(new NullToken(), $offer, [OfferVoter::VIEW]);
+
+        self::assertSame(VoterInterface::ACCESS_DENIED, $result);
+    }
+
+    public function testAnonymousCannotViewPublishedOfferWhenModerationRejected(): void
+    {
+        $offer = (new Offer())
+            ->setStatus(Offer::STATUS_PUBLISHED)
+            ->setModerationStatus(Offer::MODERATION_STATUS_REJECTED)
             ->setIsVisible(true);
 
         $result = $this->voter->vote(new NullToken(), $offer, [OfferVoter::VIEW]);

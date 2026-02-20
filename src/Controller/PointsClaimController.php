@@ -11,7 +11,6 @@ use App\Repository\PointsClaimRepository;
 use App\Repository\PointsClaimReviewEventRepository;
 use App\Security\PointsClaimVoter;
 use App\Service\ImpactEvidenceProviderInterface;
-use App\Service\PointsClaimDecisionNotifier;
 use App\Service\PointsClaimService;
 use App\Service\PointsLedgerService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -45,10 +44,6 @@ class PointsClaimController extends AbstractController
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw $this->createAccessDeniedException();
-        }
-
-        if ($this->isGranted('ROLE_ADMIN') && (!$user->isCompany() || !$user->getCompany() instanceof Company)) {
-            return $this->redirectToRoute('points_claim_review_index');
         }
 
         if (!$user->isCompany() || !$user->getCompany() instanceof Company) {
@@ -135,8 +130,6 @@ class PointsClaimController extends AbstractController
 
                     if (PointsClaim::STATUS_APPROVED === $createdClaim->getStatus()) {
                         $this->addFlash('success', sprintf('Preuve validee automatiquement. +%d points.', (int) $createdClaim->getApprovedPoints()));
-                    } elseif (PointsClaim::STATUS_IN_REVIEW === $createdClaim->getStatus()) {
-                        $this->addFlash('success', 'Preuves envoyees. Verification humaine en cours.');
                     } else {
                         $this->addFlash('error', 'Preuves insuffisantes. La demande a ete rejetee.');
                     }
@@ -166,16 +159,6 @@ class PointsClaimController extends AbstractController
         return $this->redirectToRoute('points_claim_index');
     }
 
-    #[Route('/review', name: 'points_claim_review_index', methods: ['GET'])]
-    public function reviewIndex(PointsClaimRepository $pointsClaimRepository): Response
-    {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
-
-        return $this->render('points_claim/review_index.html.twig', [
-            'claims' => $pointsClaimRepository->findPendingForReview(100),
-        ]);
-    }
-
     #[Route('/{id}', name: 'points_claim_show', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function show(PointsClaim $claim, PointsClaimReviewEventRepository $reviewEventRepository): Response
     {
@@ -188,71 +171,7 @@ class PointsClaimController extends AbstractController
         return $this->render('points_claim/show.html.twig', [
             'claim' => $claim,
             'events' => $events,
-            'reviewReasonCodes' => $this->getReviewReasonCodes(),
         ]);
-    }
-
-    #[Route('/{id}/review', name: 'points_claim_review', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function review(
-        Request $request,
-        PointsClaim $claim,
-        PointsClaimService $pointsClaimService,
-        PointsClaimDecisionNotifier $pointsClaimDecisionNotifier,
-        EntityManagerInterface $entityManager,
-    ): Response {
-        $this->denyAccessUnlessGranted(PointsClaimVoter::REVIEW, $claim);
-
-        if (!$this->isCsrfTokenValid('review_points_claim_' . $claim->getId(), (string) $request->request->get('_token'))) {
-            $this->addFlash('error', 'Jeton CSRF invalide.');
-            return $this->redirectToRoute('points_claim_show', ['id' => $claim->getId()]);
-        }
-
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            throw $this->createAccessDeniedException();
-        }
-
-        $decision = strtoupper(trim((string) $request->request->get('decision')));
-        $reasonCode = trim((string) $request->request->get('reason_code'));
-        $reasonNote = trim((string) $request->request->get('reason_note'));
-
-        if ('' === $reasonCode) {
-            $this->addFlash('error', 'Un code motif est obligatoire.');
-            return $this->redirectToRoute('points_claim_show', ['id' => $claim->getId()]);
-        }
-
-        try {
-            if ('APPROVE' === $decision) {
-                $approvedPointsRaw = $request->request->get('approved_points');
-                $approvedPoints = is_numeric($approvedPointsRaw) ? (int) $approvedPointsRaw : null;
-                $entry = $pointsClaimService->approve(
-                    claim: $claim,
-                    reviewer: $user,
-                    reasonCode: $reasonCode,
-                    approvedPoints: (null !== $approvedPoints && $approvedPoints > 0) ? $approvedPoints : null,
-                    reasonNote: '' !== $reasonNote ? $reasonNote : null,
-                );
-                $entityManager->flush();
-                $pointsClaimDecisionNotifier->sendDecisionNotification($claim);
-
-                if (null !== $entry) {
-                    $this->addFlash('success', sprintf('Demande approuvee. +%d points credites.', $entry->getPoints()));
-                } else {
-                    $this->addFlash('success', 'Demande approuvee. Aucun nouveau credit (idempotence).');
-                }
-            } elseif ('REJECT' === $decision) {
-                $pointsClaimService->reject($claim, $user, $reasonCode, '' !== $reasonNote ? $reasonNote : null);
-                $entityManager->flush();
-                $pointsClaimDecisionNotifier->sendDecisionNotification($claim);
-                $this->addFlash('success', 'Demande rejetee.');
-            } else {
-                $this->addFlash('error', 'Decision invalide.');
-            }
-        } catch (\Throwable $e) {
-            $this->addFlash('error', 'Operation impossible: ' . $e->getMessage());
-        }
-
-        return $this->redirectToRoute('points_claim_show', ['id' => $claim->getId()]);
     }
 
     #[Route('/{id}/evidence/{index}/download', name: 'points_claim_evidence_download', methods: ['GET'], requirements: ['id' => '\d+', 'index' => '\d+'])]
@@ -341,20 +260,6 @@ class PointsClaimController extends AbstractController
             'coherenceOk' => $sameCompanyOffer,
             'checks' => $checks,
             'sources' => $sources,
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function getReviewReasonCodes(): array
-    {
-        return [
-            'APPROVED_BY_REVIEWER' => PointsClaim::REASON_CODE_APPROVED_BY_REVIEWER,
-            'REJECTED_BY_REVIEWER' => PointsClaim::REASON_CODE_REJECTED_BY_REVIEWER,
-            'INSUFFICIENT_EVIDENCE_SCORE' => PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE,
-            'DUPLICATE_EVIDENCE_FILE' => PointsClaim::REASON_CODE_DUPLICATE_EVIDENCE_FILE,
-            'EVIDENCE_TOO_OLD' => PointsClaim::REASON_CODE_EVIDENCE_TOO_OLD,
         ];
     }
 }
