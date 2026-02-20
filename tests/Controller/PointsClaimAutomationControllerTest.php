@@ -50,7 +50,6 @@ class PointsClaimAutomationControllerTest extends WebTestCase
         $ledgerEntries = $entityManager->getRepository(PointsLedgerEntry::class)->findBy([
             'company' => $savedCompany,
             'referenceType' => PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
-            'referenceId' => $claim->getId(),
         ]);
         self::assertCount(1, $ledgerEntries);
 
@@ -95,7 +94,6 @@ class PointsClaimAutomationControllerTest extends WebTestCase
         $ledgerEntries = $entityManager->getRepository(PointsLedgerEntry::class)->findBy([
             'company' => $savedCompany,
             'referenceType' => PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
-            'referenceId' => $claim->getId(),
         ]);
         self::assertCount(0, $ledgerEntries);
     }

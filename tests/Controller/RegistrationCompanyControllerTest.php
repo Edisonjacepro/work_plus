@@ -65,7 +65,7 @@ class RegistrationCompanyControllerTest extends WebTestCase
         ]);
 
         $client->submit($form);
-        self::assertResponseIsSuccessful();
+        self::assertResponseStatusCodeSame(422);
 
         $content = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('Le nom de cette entreprise est deja utilise.', $content);

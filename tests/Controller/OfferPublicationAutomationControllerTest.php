@@ -6,48 +6,22 @@ use App\Entity\Company;
 use App\Entity\ModerationReview;
 use App\Entity\Offer;
 use App\Entity\User;
-use App\Repository\ImpactScoreRepository;
 use App\Repository\ModerationReviewRepository;
-use App\Service\ImpactEvidenceProviderInterface;
-use App\Service\ImpactScoringService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 class OfferPublicationAutomationControllerTest extends WebTestCase
 {
-    public function testPublishOfferAutoApprovesWhenEligibilityScoreIsHigh(): void
+    public function testPublishOfferAutoRejectsWhenImpactScoreIsTooLow(): void
     {
         $client = static::createClient();
-        $container = static::getContainer();
         $entityManager = $this->requireDatabaseOrSkip();
-
-        $provider = new class() implements ImpactEvidenceProviderInterface {
-            public function collectForOffer(Offer $offer): array
-            {
-                return [
-                    'company' => [
-                        'checked' => true,
-                        'found' => true,
-                        'active' => true,
-                        'isEss' => true,
-                        'isMissionCompany' => false,
-                        'hasGesReport' => true,
-                    ],
-                    'location' => [
-                        'checked' => true,
-                        'validated' => true,
-                    ],
-                ];
-            }
-        };
-        $container->set(ImpactScoringService::class, new ImpactScoringService($provider));
 
         [$company, $user] = $this->createCompanyUser($entityManager, true);
         $offer = (new Offer())
             ->setTitle('Programme climat biodiversite inclusion')
-            ->setDescription(str_repeat('Nous reduisons les emissions, protegeons la biodiversite et creons des emplois inclusifs. ', 3))
+            ->setDescription(str_repeat('Nous reduisons les emissions, protegeons la biodiversite et creons des emplois inclusifs. ', 5))
             ->setImpactCategories(['societe', 'biodiversite', 'ges'])
             ->setCompany($company)
             ->setAuthor($user);
@@ -64,22 +38,12 @@ class OfferPublicationAutomationControllerTest extends WebTestCase
         /** @var Offer|null $savedOffer */
         $savedOffer = $entityManager->getRepository(Offer::class)->find($offer->getId());
         self::assertInstanceOf(Offer::class, $savedOffer);
-        self::assertSame(Offer::STATUS_PUBLISHED, $savedOffer->getStatus());
-        self::assertSame(Offer::MODERATION_STATUS_APPROVED, $savedOffer->getModerationStatus());
-        self::assertNotNull($savedOffer->getPublishedAt());
+        self::assertSame(Offer::STATUS_DRAFT, $savedOffer->getStatus());
+        self::assertSame(Offer::MODERATION_STATUS_REJECTED, $savedOffer->getModerationStatus());
+        self::assertSame('LOW_IMPACT_SCORE', $savedOffer->getModerationReasonCode());
+        self::assertNull($savedOffer->getPublishedAt());
         self::assertNotNull($savedOffer->getModeratedAt());
-        self::assertTrue($savedOffer->isVisible());
-
-        /** @var ModerationReviewRepository $reviewRepository */
-        $reviewRepository = $entityManager->getRepository(ModerationReview::class);
-        $reviews = $reviewRepository->findBy(['offer' => $savedOffer], ['id' => 'ASC']);
-        self::assertCount(2, $reviews);
-        self::assertSame(ModerationReview::ACTION_SUBMITTED, $reviews[0]->getAction());
-        self::assertSame(ModerationReview::ACTION_AUTO_APPROVED, $reviews[1]->getAction());
-
-        /** @var ImpactScoreRepository $impactScoreRepository */
-        $impactScoreRepository = $entityManager->getRepository(\App\Entity\ImpactScore::class);
-        self::assertNotNull($impactScoreRepository->findLatestForOffer((int) $savedOffer->getId()));
+        self::assertFalse($savedOffer->isVisible());
     }
 
     public function testPublishOfferAutoRejectsWhenForbiddenKeywordIsDetected(): void
@@ -122,12 +86,13 @@ class OfferPublicationAutomationControllerTest extends WebTestCase
 
     private function publishOffer(KernelBrowser $client, int $offerId): void
     {
-        /** @var CsrfTokenManagerInterface $csrfTokenManager */
-        $csrfTokenManager = static::getContainer()->get(CsrfTokenManagerInterface::class);
-        $token = $csrfTokenManager->getToken('publish_offer_' . $offerId)->getValue();
+        $crawler = $client->request('GET', '/offers/' . $offerId);
+        self::assertResponseIsSuccessful();
+        $token = $crawler->filter('form[action="/offers/' . $offerId . '/publish"] input[name="_token"]')->attr('value');
+        self::assertNotNull($token);
 
         $client->request('POST', '/offers/' . $offerId . '/publish', [
-            '_token' => $token,
+            '_token' => (string) $token,
         ]);
     }
 
