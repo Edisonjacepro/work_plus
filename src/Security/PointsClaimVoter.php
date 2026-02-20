@@ -11,11 +11,10 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 class PointsClaimVoter extends Voter
 {
     public const VIEW = 'VIEW';
-    public const REVIEW = 'REVIEW';
 
     protected function supports(string $attribute, mixed $subject): bool
     {
-        return in_array($attribute, [self::VIEW, self::REVIEW], true) && $subject instanceof PointsClaim;
+        return self::VIEW === $attribute && $subject instanceof PointsClaim;
     }
 
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
@@ -31,10 +30,6 @@ class PointsClaimVoter extends Voter
 
         if (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
             return true;
-        }
-
-        if (self::REVIEW === $attribute) {
-            return false;
         }
 
         if (!$user->isCompany()) {

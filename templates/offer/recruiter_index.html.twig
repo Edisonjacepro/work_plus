@@ -5,7 +5,7 @@
 {% block body %}
     <h1>Mes offres</h1>
 
-    <p><a href="{{ path('offer_new') }}">Créer une offre</a></p>
+    <p><a href="{{ path('offer_new') }}">Creer une offre</a></p>
 
     {% if offers is empty %}
         <p>Aucune offre.</p>
@@ -14,13 +14,15 @@
             {% for offer in offers %}
                 <li>
                     <a href="{{ path('offer_show', {id: offer.id}) }}">{{ offer.title }}</a>
-                    — {{ offer.company.name }}
+                    - {{ offer.company.name }}
                     <span class="status-badge status-{{ offer.status|lower }}">
-                        {{ offer.status == 'PUBLISHED' ? 'Publié' : 'Brouillon' }}
+                        {{ offer.status == 'PUBLISHED' ? 'Publiee' : 'Brouillon' }}
+                    </span>
+                    <span class="status-badge status-{{ offer.moderationStatus|lower }}">
+                        Moderation: {{ offer.moderationStatus }}
                     </span>
                 </li>
             {% endfor %}
         </ul>
     {% endif %}
 {% endblock %}
-

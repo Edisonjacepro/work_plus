@@ -52,17 +52,4 @@ SQL;
             ->getResult();
     }
 
-    /**
-     * @return list<PointsClaim>
-     */
-    public function findPendingForReview(int $limit = 50): array
-    {
-        return $this->createQueryBuilder('c')
-            ->andWhere('c.status IN (:statuses)')
-            ->setParameter('statuses', [PointsClaim::STATUS_SUBMITTED, PointsClaim::STATUS_IN_REVIEW])
-            ->orderBy('c.createdAt', 'ASC')
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
-    }
 }

@@ -108,7 +108,7 @@ class PointsClaimServiceTest extends TestCase
         self::assertInstanceOf(PointsLedgerEntry::class, $persisted[3]);
     }
 
-    public function testSubmitSetsInReviewForMediumEvidenceScore(): void
+    public function testSubmitRejectsWhenEvidenceScoreIsBelowAutomaticThreshold(): void
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
@@ -146,10 +146,10 @@ class PointsClaimServiceTest extends TestCase
             null,
         );
 
-        self::assertSame(PointsClaim::STATUS_IN_REVIEW, $claim->getStatus());
+        self::assertSame(PointsClaim::STATUS_REJECTED, $claim->getStatus());
         self::assertSame(45, $claim->getEvidenceScore());
         self::assertSame(11, $claim->getRequestedPoints());
-        self::assertSame(PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW, $claim->getDecisionReasonCode());
+        self::assertSame(PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE, $claim->getDecisionReasonCode());
         self::assertNull($claim->getApprovedPoints());
     }
 
@@ -219,7 +219,7 @@ class PointsClaimServiceTest extends TestCase
         self::assertSame(PointsClaim::REASON_CODE_DUPLICATE_EVIDENCE_FILE, $claim->getDecisionReasonCode());
     }
 
-    public function testApproveCreatesLedgerEntryForClaimInReview(): void
+    public function testApproveThrowsWhenManualReviewIsDisabled(): void
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
@@ -231,39 +231,26 @@ class PointsClaimServiceTest extends TestCase
         $claim = (new PointsClaim())
             ->setCompany($company)
             ->setClaimType(PointsClaim::CLAIM_TYPE_CERTIFICATION)
-            ->setStatus(PointsClaim::STATUS_IN_REVIEW)
+            ->setStatus(PointsClaim::STATUS_SUBMITTED)
             ->setRequestedPoints(30)
             ->setEvidenceScore(62)
             ->setIdempotencyKey('claim-key-4');
 
-        $ledgerRepository->expects(self::once())
-            ->method('existsByIdempotencyKey')
-            ->with('points_claim_approval_claim-key-4')
-            ->willReturn(false);
+        $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
+        $entityManager->expects(self::never())->method('persist');
 
-        $persisted = [];
-        $entityManager->expects(self::exactly(3))
-            ->method('persist')
-            ->willReturnCallback(static function (mixed $entity) use (&$persisted): void {
-                $persisted[] = $entity;
-            });
+        $this->expectException(\LogicException::class);
 
-        $entry = $service->approve(
+        $service->approve(
             claim: $claim,
             reviewer: $reviewer,
             reasonCode: PointsClaim::REASON_CODE_APPROVED_BY_REVIEWER,
             approvedPoints: 22,
             reasonNote: 'Manual approval after review',
         );
-
-        self::assertInstanceOf(PointsLedgerEntry::class, $entry);
-        self::assertSame(PointsClaim::STATUS_APPROVED, $claim->getStatus());
-        self::assertSame(22, $claim->getApprovedPoints());
-        self::assertSame($reviewer, $claim->getReviewedBy());
-        self::assertCount(3, $persisted);
     }
 
-    public function testRejectRequiresReasonCode(): void
+    public function testRejectThrowsWhenManualReviewIsDisabled(): void
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
@@ -271,16 +258,17 @@ class PointsClaimServiceTest extends TestCase
         $service = new PointsClaimService($claimRepository, $ledgerRepository, $entityManager);
 
         $claim = (new PointsClaim())
-            ->setStatus(PointsClaim::STATUS_IN_REVIEW)
+            ->setStatus(PointsClaim::STATUS_SUBMITTED)
             ->setRequestedPoints(10)
             ->setIdempotencyKey('claim-key-5')
             ->setCompany((new Company())->setName('Impact Co'));
         $reviewer = (new User())->setEmail('reviewer@example.com')->setPassword('secret');
 
         $entityManager->expects(self::never())->method('persist');
+        $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
 
-        $this->expectException(\InvalidArgumentException::class);
-        $service->reject($claim, $reviewer, '   ', 'comment');
+        $this->expectException(\LogicException::class);
+        $service->reject($claim, $reviewer, PointsClaim::REASON_CODE_REJECTED_BY_REVIEWER, 'comment');
     }
 
     private function setEntityId(object $entity, int $id): void

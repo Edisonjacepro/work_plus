@@ -124,23 +124,11 @@ class PointsClaimService
                 reasonText: null,
                 metadata: null,
             );
-        } elseif ($evidenceScore >= 40) {
-            $claim
-                ->setStatus(PointsClaim::STATUS_IN_REVIEW)
-                ->setDecisionReasonCode(PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW)
-                ->setDecisionReason('Revue humaine requise.');
-            $this->createReviewEvent(
-                pointsClaim: $claim,
-                action: PointsClaimReviewEvent::ACTION_MARKED_IN_REVIEW,
-                reasonCode: PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW,
-                reasonText: null,
-                metadata: null,
-            );
         } else {
             $claim
                 ->setStatus(PointsClaim::STATUS_REJECTED)
                 ->setDecisionReasonCode(PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE)
-                ->setDecisionReason('Score de preuve insuffisant.')
+                ->setDecisionReason('Score de preuve insuffisant pour validation automatique.')
                 ->setReviewedAt(new \DateTimeImmutable());
             $this->createReviewEvent(
                 pointsClaim: $claim,
@@ -163,24 +151,7 @@ class PointsClaimService
      */
     public function markInReview(PointsClaim $claim, ?array $externalChecks = null): void
     {
-        if (PointsClaim::STATUS_APPROVED === $claim->getStatus() || PointsClaim::STATUS_REJECTED === $claim->getStatus()) {
-            throw new \LogicException('Cannot move an approved or rejected claim back to in review.');
-        }
-
-        $claim
-            ->setStatus(PointsClaim::STATUS_IN_REVIEW)
-            ->setDecisionReasonCode(PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW)
-            ->setDecisionReason('Revue humaine requise.')
-            ->setExternalChecks($externalChecks);
-
-        $this->entityManager->persist($claim);
-        $this->createReviewEvent(
-            pointsClaim: $claim,
-            action: PointsClaimReviewEvent::ACTION_MARKED_IN_REVIEW,
-            reasonCode: PointsClaim::REASON_CODE_NEEDS_HUMAN_REVIEW,
-            reasonText: null,
-            metadata: null,
-        );
+        throw new \LogicException('Manual review is disabled in v1 automatic mode.');
     }
 
     public function approve(
@@ -191,73 +162,12 @@ class PointsClaimService
         ?string $reasonNote = null,
     ): ?PointsLedgerEntry
     {
-        if (PointsClaim::STATUS_REJECTED === $claim->getStatus()) {
-            throw new \LogicException('A rejected claim cannot be approved directly.');
-        }
-
-        $normalizedReasonCode = trim($reasonCode);
-        if ('' === $normalizedReasonCode) {
-            throw new \InvalidArgumentException('An approval reason code is required.');
-        }
-
-        $points = $approvedPoints ?? $claim->getRequestedPoints();
-        if ($points <= 0) {
-            throw new \InvalidArgumentException('Approved points must be greater than zero.');
-        }
-
-        $claim
-            ->setStatus(PointsClaim::STATUS_APPROVED)
-            ->setApprovedPoints($points)
-            ->setDecisionReasonCode($normalizedReasonCode)
-            ->setDecisionReason(null !== $reasonNote ? trim($reasonNote) : 'Validated by reviewer.')
-            ->setReviewedBy($reviewer)
-            ->setReviewedAt(new \DateTimeImmutable());
-
-        $this->entityManager->persist($claim);
-        $this->createReviewEvent(
-            pointsClaim: $claim,
-            action: PointsClaimReviewEvent::ACTION_APPROVED,
-            actor: $reviewer,
-            reasonCode: $normalizedReasonCode,
-            reasonText: $claim->getDecisionReason(),
-            metadata: ['approvedPoints' => $points],
-        );
-
-        return $this->createApprovalLedgerEntry($claim, $points);
+        throw new \LogicException('Manual review is disabled in v1 automatic mode.');
     }
 
     public function reject(PointsClaim $claim, User $reviewer, string $reasonCode, ?string $reasonNote = null): void
     {
-        $normalizedReasonCode = trim($reasonCode);
-        if ('' === $normalizedReasonCode) {
-            throw new \InvalidArgumentException('A rejection reason code is required.');
-        }
-
-        if (PointsClaim::STATUS_APPROVED === $claim->getStatus()) {
-            throw new \LogicException('An approved claim cannot be rejected directly.');
-        }
-
-        $trimmedReason = trim((string) $reasonNote);
-        if ('' === $trimmedReason) {
-            $trimmedReason = 'Rejected by reviewer.';
-        }
-
-        $claim
-            ->setStatus(PointsClaim::STATUS_REJECTED)
-            ->setDecisionReasonCode($normalizedReasonCode)
-            ->setDecisionReason($trimmedReason)
-            ->setReviewedBy($reviewer)
-            ->setReviewedAt(new \DateTimeImmutable());
-
-        $this->entityManager->persist($claim);
-        $this->createReviewEvent(
-            pointsClaim: $claim,
-            action: PointsClaimReviewEvent::ACTION_REJECTED,
-            actor: $reviewer,
-            reasonCode: $normalizedReasonCode,
-            reasonText: $trimmedReason,
-            metadata: null,
-        );
+        throw new \LogicException('Manual review is disabled in v1 automatic mode.');
     }
 
     /**

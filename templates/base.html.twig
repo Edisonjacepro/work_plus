@@ -51,15 +51,6 @@
                         </details>
                     {% endif %}
 
-                    {% if app.user and is_granted('ROLE_ADMIN') %}
-                        <details class="nav-dropdown">
-                            <summary class="nav-link">Admin</summary>
-                            <div class="nav-submenu">
-                                <a class="nav-submenu-link" href="{{ path('points_claim_review_index') }}">Revue points</a>
-                            </div>
-                        </details>
-                    {% endif %}
-
                     {% if app.user %}
                         <details class="nav-dropdown">
                             <summary class="nav-link">Compte</summary>

@@ -47,34 +47,6 @@
         {% endif %}
     </section>
 
-    {% if is_granted('ROLE_ADMIN') and claim.status in ['SUBMITTED', 'IN_REVIEW'] %}
-        <section>
-            <h2>Revue admin</h2>
-            <form method="post" action="{{ path('points_claim_review', {id: claim.id}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('review_points_claim_' ~ claim.id) }}">
-                <div>
-                    <label for="approved_points">Points approuves (optionnel)</label>
-                    <input id="approved_points" type="number" name="approved_points" min="1" value="{{ claim.requestedPoints }}">
-                </div>
-                <div>
-                    <label for="reason_code">Code motif</label>
-                    <select id="reason_code" name="reason_code" required>
-                        <option value="">Selectionner un code</option>
-                        {% for label, code in reviewReasonCodes %}
-                            <option value="{{ code }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label for="reason_note">Note (optionnel)</label>
-                    <input id="reason_note" type="text" name="reason_note" maxlength="255">
-                </div>
-                <button type="submit" name="decision" value="APPROVE">Approuver</button>
-                <button type="submit" name="decision" value="REJECT">Rejeter</button>
-            </form>
-        </section>
-    {% endif %}
-
     <section>
         <h2>Audit des decisions</h2>
         {% if events is empty %}
@@ -107,8 +79,5 @@
 
     <p>
         <a href="{{ path('points_claim_index') }}">Retour aux demandes</a>
-        {% if is_granted('ROLE_ADMIN') %}
-            | <a href="{{ path('points_claim_review_index') }}">File de revue</a>
-        {% endif %}
     </p>
 {% endblock %}

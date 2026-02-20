@@ -50,8 +50,10 @@ class OfferRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('o')
             ->andWhere('o.isVisible = :visible')
             ->andWhere('o.status = :status')
+            ->andWhere('o.moderationStatus = :moderationStatus')
             ->setParameter('visible', true)
             ->setParameter('status', Offer::STATUS_PUBLISHED)
+            ->setParameter('moderationStatus', Offer::MODERATION_STATUS_APPROVED)
             ->orderBy('o.id', 'DESC')
             ->getQuery()
             ->getResult();

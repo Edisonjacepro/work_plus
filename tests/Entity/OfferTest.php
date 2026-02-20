@@ -28,6 +28,13 @@ class OfferTest extends TestCase
         self::assertNull($offer->getPublishedAt());
     }
 
+    public function testDefaultModerationStatusIsDraft(): void
+    {
+        $offer = new Offer();
+
+        self::assertSame(Offer::MODERATION_STATUS_DRAFT, $offer->getModerationStatus());
+    }
+
     public function testCanSetPublishedAt(): void
     {
         $offer = new Offer();

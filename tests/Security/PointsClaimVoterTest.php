@@ -20,12 +20,12 @@ class PointsClaimVoterTest extends TestCase
         $this->voter = new PointsClaimVoter();
     }
 
-    public function testAdminCanReviewAnyClaim(): void
+    public function testAdminCanViewAnyClaim(): void
     {
         $admin = (new User())->setRoles(['ROLE_ADMIN']);
         $claim = (new PointsClaim())->setCompany((new Company())->setName('Impact Co'));
 
-        $result = $this->voter->vote($this->tokenFor($admin), $claim, [PointsClaimVoter::REVIEW]);
+        $result = $this->voter->vote($this->tokenFor($admin), $claim, [PointsClaimVoter::VIEW]);
 
         self::assertSame(VoterInterface::ACCESS_GRANTED, $result);
     }
@@ -45,19 +45,6 @@ class PointsClaimVoterTest extends TestCase
         $result = $this->voter->vote($this->tokenFor($user), $claim, [PointsClaimVoter::VIEW]);
 
         self::assertSame(VoterInterface::ACCESS_GRANTED, $result);
-    }
-
-    public function testCompanyUserCannotReviewClaim(): void
-    {
-        $company = (new Company())->setName('Impact Co');
-        $user = (new User())
-            ->setAccountType(User::ACCOUNT_TYPE_COMPANY)
-            ->setCompany($company);
-        $claim = (new PointsClaim())->setCompany($company);
-
-        $result = $this->voter->vote($this->tokenFor($user), $claim, [PointsClaimVoter::REVIEW]);
-
-        self::assertSame(VoterInterface::ACCESS_DENIED, $result);
     }
 
     public function testAnonymousCannotViewClaim(): void
