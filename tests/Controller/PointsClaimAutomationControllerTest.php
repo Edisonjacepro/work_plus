@@ -52,6 +52,10 @@ class PointsClaimAutomationControllerTest extends WebTestCase
             'referenceType' => PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
         ]);
         self::assertCount(1, $ledgerEntries);
+        /** @var PointsLedgerEntry $ledgerEntry */
+        $ledgerEntry = $ledgerEntries[0];
+        self::assertNotNull($ledgerEntry->getReferenceId());
+        self::assertSame((int) $claim->getId(), $ledgerEntry->getReferenceId());
 
         /** @var PointsClaimReviewEventRepository $reviewEventRepository */
         $reviewEventRepository = $entityManager->getRepository(PointsClaimReviewEvent::class);

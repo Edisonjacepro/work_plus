@@ -70,8 +70,21 @@ class PointsClaimServiceTest extends TestCase
         $persisted = [];
         $entityManager->expects(self::exactly(4))
             ->method('persist')
-            ->willReturnCallback(static function (mixed $entity) use (&$persisted): void {
+            ->willReturnCallback(function (mixed $entity) use (&$persisted): void {
                 $persisted[] = $entity;
+            });
+        $entityManager->expects(self::once())
+            ->method('flush')
+            ->willReturnCallback(function () use (&$persisted): void {
+                foreach ($persisted as $entity) {
+                    if (!$entity instanceof PointsClaim || null !== $entity->getId()) {
+                        continue;
+                    }
+
+                    $reflection = new \ReflectionProperty($entity::class, 'id');
+                    $reflection->setAccessible(true);
+                    $reflection->setValue($entity, 101);
+                }
             });
 
         $claim = $service->submit(
@@ -106,6 +119,9 @@ class PointsClaimServiceTest extends TestCase
         self::assertInstanceOf(PointsClaimReviewEvent::class, $persisted[1]);
         self::assertInstanceOf(PointsClaimReviewEvent::class, $persisted[2]);
         self::assertInstanceOf(PointsLedgerEntry::class, $persisted[3]);
+        /** @var PointsLedgerEntry $ledgerEntry */
+        $ledgerEntry = $persisted[3];
+        self::assertSame(101, $ledgerEntry->getReferenceId());
     }
 
     public function testSubmitRejectsWhenEvidenceScoreIsBelowAutomaticThreshold(): void

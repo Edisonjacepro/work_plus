@@ -140,6 +140,9 @@ class PointsClaimService
         }
 
         if (PointsClaim::STATUS_APPROVED === $claim->getStatus()) {
+            if (null === $claim->getId()) {
+                $this->entityManager->flush();
+            }
             $this->createApprovalLedgerEntry($claim, $suggestedPoints);
         }
 
@@ -243,6 +246,11 @@ class PointsClaimService
 
     private function createApprovalLedgerEntry(PointsClaim $claim, int $points): ?PointsLedgerEntry
     {
+        $claimId = $claim->getId();
+        if (null === $claimId) {
+            throw new \LogicException('Points claim id must be available before creating approval ledger entry.');
+        }
+
         $idempotencyKey = sprintf('points_claim_approval_%s', $claim->getIdempotencyKey());
         if ($this->pointsLedgerEntryRepository->existsByIdempotencyKey($idempotencyKey)) {
             return null;
@@ -253,7 +261,7 @@ class PointsClaimService
             ->setPoints($points)
             ->setReason('Points claim approved')
             ->setReferenceType(PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL)
-            ->setReferenceId($claim->getId())
+            ->setReferenceId($claimId)
             ->setRuleVersion($claim->getRuleVersion())
             ->setIdempotencyKey($idempotencyKey)
             ->setCompany($claim->getCompany())
