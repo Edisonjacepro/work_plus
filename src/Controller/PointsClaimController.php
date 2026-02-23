@@ -13,6 +13,7 @@ use App\Security\PointsClaimVoter;
 use App\Service\ImpactEvidenceProviderInterface;
 use App\Service\PointsClaimService;
 use App\Service\PointsLedgerService;
+use App\Service\RequestRateLimiterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -36,6 +37,7 @@ class PointsClaimController extends AbstractController
         OfferRepository $offerRepository,
         PointsClaimService $pointsClaimService,
         PointsLedgerService $pointsLedgerService,
+        RequestRateLimiterService $requestRateLimiterService,
         ImpactEvidenceProviderInterface $impactEvidenceProvider,
         EntityManagerInterface $entityManager,
         string $pointsClaimUploadDir,
@@ -66,6 +68,8 @@ class PointsClaimController extends AbstractController
             if ([] === $uploadedFiles) {
                 $form->get('evidenceFiles')->addError(new FormError('Au moins un justificatif est requis.'));
             } else {
+                $requestRateLimiterService->consumePointsClaimSubmit($user);
+
                 $fingerprints = [];
                 foreach ($uploadedFiles as $uploadedFile) {
                     if ($uploadedFile instanceof UploadedFile) {

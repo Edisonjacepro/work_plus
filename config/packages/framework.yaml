@@ -4,6 +4,19 @@ framework:
     annotations: false
     http_method_override: false
     handle_all_throwables: true
+    rate_limiter:
+        offer_publish:
+            policy: 'sliding_window'
+            limit: 6
+            interval: '1 minute'
+        points_claim_submit:
+            policy: 'fixed_window'
+            limit: 10
+            interval: '15 minutes'
+        application_hire:
+            policy: 'fixed_window'
+            limit: 20
+            interval: '1 hour'
 
     # Enables session support. Note that the session will ONLY be started if you read or write from it.
     # Remove or comment this section to explicitly disable session support.
