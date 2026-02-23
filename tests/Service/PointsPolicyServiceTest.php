@@ -15,7 +15,7 @@ class PointsPolicyServiceTest extends TestCase
     public function testEvaluateCompanyCreditReturnsNullWhenWithinCaps(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
-        $service = new PointsPolicyService($repository);
+        $service = $this->createService($repository);
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 10);
 
@@ -45,7 +45,7 @@ class PointsPolicyServiceTest extends TestCase
     public function testEvaluateCompanyCreditRejectsOnDailyPointsCapForClaims(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
-        $service = new PointsPolicyService($repository);
+        $service = $this->createService($repository);
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 11);
 
@@ -69,7 +69,7 @@ class PointsPolicyServiceTest extends TestCase
     public function testEvaluateCompanyCreditRejectsOnMonthlyClaimQuota(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
-        $service = new PointsPolicyService($repository);
+        $service = $this->createService($repository);
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 12);
 
@@ -84,7 +84,7 @@ class PointsPolicyServiceTest extends TestCase
         $repository->expects(self::once())
             ->method('countCompanyCreditEntriesByReferenceSince')
             ->with(12, PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL, self::isInstanceOf(\DateTimeImmutable::class))
-            ->willReturn(PointsPolicyService::COMPANY_MONTHLY_POINTS_CLAIM_CAP);
+            ->willReturn(25);
 
         $decision = $service->evaluateCompanyCredit(
             $company,
@@ -100,7 +100,7 @@ class PointsPolicyServiceTest extends TestCase
     public function testEvaluateCompanyCreditRejectsOnOfferFreemiumQuota(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
-        $service = new PointsPolicyService($repository);
+        $service = $this->createService($repository);
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 13);
 
@@ -115,7 +115,7 @@ class PointsPolicyServiceTest extends TestCase
         $repository->expects(self::once())
             ->method('countCompanyCreditEntriesByReferenceSince')
             ->with(13, PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION, self::isInstanceOf(\DateTimeImmutable::class))
-            ->willReturn(PointsPolicyService::COMPANY_MONTHLY_OFFER_PUBLICATION_CAP);
+            ->willReturn(60);
 
         $decision = $service->evaluateCompanyCredit(
             $company,
@@ -131,7 +131,7 @@ class PointsPolicyServiceTest extends TestCase
     public function testEvaluateUserCreditRejectsOnDailyPointsCap(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
-        $service = new PointsPolicyService($repository);
+        $service = $this->createService($repository);
         $user = (new User())->setEmail('candidate@example.com')->setPassword('secret');
         $this->setEntityId($user, 20);
 
@@ -150,6 +150,94 @@ class PointsPolicyServiceTest extends TestCase
 
         self::assertIsArray($decision);
         self::assertSame('USER_DAILY_POINTS_CAP', $decision['reasonCode']);
+    }
+
+    public function testEvaluateCompanyCreditFallsBackToStarterWhenPaidPlanExpired(): void
+    {
+        $repository = $this->createMock(PointsLedgerEntryRepository::class);
+        $service = $this->createService($repository);
+        $company = (new Company())
+            ->setName('Impact Co')
+            ->setRecruiterPlanCode(Company::RECRUITER_PLAN_GROWTH)
+            ->setRecruiterPlanExpiresAt(new \DateTimeImmutable('2026-02-01 00:00:00'));
+        $this->setEntityId($company, 14);
+
+        $repository->expects(self::once())
+            ->method('sumCompanyCreditPointsSince')
+            ->with(14, self::isInstanceOf(\DateTimeImmutable::class))
+            ->willReturn(170);
+        $repository->expects(self::never())->method('countCompanyCreditEntriesSince');
+
+        $decision = $service->evaluateCompanyCredit(
+            $company,
+            25,
+            PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION,
+            new \DateTimeImmutable('2026-02-23 10:00:00'),
+        );
+
+        self::assertIsArray($decision);
+        self::assertSame('COMPANY_DAILY_POINTS_CAP', $decision['reasonCode']);
+        self::assertSame('STARTER', $decision['metadata']['planCode'] ?? null);
+    }
+
+    /**
+     * @param array<string, array<string, int>>|null $companyPlanLimits
+     * @param array<string, int>|null $userLimits
+     */
+    private function createService(
+        PointsLedgerEntryRepository $repository,
+        ?array $companyPlanLimits = null,
+        ?array $userLimits = null,
+        string $defaultCompanyPlan = Company::RECRUITER_PLAN_STARTER,
+    ): PointsPolicyService {
+        return new PointsPolicyService(
+            $repository,
+            $companyPlanLimits ?? $this->defaultCompanyPlanLimits(),
+            $userLimits ?? $this->defaultUserLimits(),
+            $defaultCompanyPlan,
+        );
+    }
+
+    /**
+     * @return array<string, array<string, int>>
+     */
+    private function defaultCompanyPlanLimits(): array
+    {
+        return [
+            Company::RECRUITER_PLAN_STARTER => [
+                'company_daily_points_cap' => 180,
+                'company_daily_credits_cap' => 6,
+                'company_monthly_points_cap' => 1500,
+                'company_monthly_offer_publication_cap' => 60,
+                'company_monthly_points_claim_cap' => 25,
+            ],
+            Company::RECRUITER_PLAN_GROWTH => [
+                'company_daily_points_cap' => 320,
+                'company_daily_credits_cap' => 12,
+                'company_monthly_points_cap' => 4000,
+                'company_monthly_offer_publication_cap' => 240,
+                'company_monthly_points_claim_cap' => 80,
+            ],
+            Company::RECRUITER_PLAN_SCALE => [
+                'company_daily_points_cap' => 800,
+                'company_daily_credits_cap' => 40,
+                'company_monthly_points_cap' => 20000,
+                'company_monthly_offer_publication_cap' => 2000,
+                'company_monthly_points_claim_cap' => 600,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function defaultUserLimits(): array
+    {
+        return [
+            'user_daily_points_cap' => 40,
+            'user_daily_credits_cap' => 4,
+            'user_monthly_points_cap' => 400,
+        ];
     }
 
     private function setEntityId(object $entity, int $id): void
