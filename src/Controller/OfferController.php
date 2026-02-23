@@ -13,6 +13,7 @@ use App\Security\OfferVoter;
 use App\Service\ImpactScoreService;
 use App\Service\ModerationService;
 use App\Service\OfferImpactScoreResolver;
+use App\Service\RequestRateLimiterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -263,6 +264,7 @@ class OfferController extends AbstractController
         EntityManagerInterface $entityManager,
         ImpactScoreService $impactScoreService,
         ModerationService $moderationService,
+        RequestRateLimiterService $requestRateLimiterService,
     ): Response
     {
         if ($this->isCsrfTokenValid('publish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
@@ -270,6 +272,13 @@ class OfferController extends AbstractController
                 $this->addFlash('error', 'Seul l\'auteur peut publier cette offre.');
                 return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
             }
+
+            $user = $this->getUser();
+            if (!$user instanceof User) {
+                throw $this->createAccessDeniedException();
+            }
+
+            $requestRateLimiterService->consumeOfferPublish($user);
 
             $eligibility = $moderationService->moderateForPublication($offer);
 

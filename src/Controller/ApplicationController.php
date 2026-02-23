@@ -11,6 +11,7 @@ use App\Repository\ApplicationRepository;
 use App\Security\ApplicationVoter;
 use App\Service\ApplicationMessageNotifier;
 use App\Service\CandidatePointsService;
+use App\Service\RequestRateLimiterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -204,6 +205,7 @@ class ApplicationController extends AbstractController
         Request $request,
         Application $application,
         CandidatePointsService $candidatePointsService,
+        RequestRateLimiterService $requestRateLimiterService,
         EntityManagerInterface $entityManager,
     ): Response {
         if (!$this->isGranted(ApplicationVoter::HIRE, $application)) {
@@ -219,6 +221,13 @@ class ApplicationController extends AbstractController
             $this->addFlash('info', 'Cette candidature est deja marquee comme embauchee.');
             return $this->redirectToRoute('application_show', ['id' => $application->getId()]);
         }
+
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $requestRateLimiterService->consumeApplicationHire($user);
 
         $application
             ->setStatus(Application::STATUS_HIRED)
