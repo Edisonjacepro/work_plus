@@ -28,6 +28,88 @@ class PointsLedgerEntryRepository extends ServiceEntityRepository
         return $count > 0;
     }
 
+    public function sumCompanyCreditPointsSince(int $companyId, \DateTimeImmutable $since): int
+    {
+        $sum = $this->createQueryBuilder('l')
+            ->select('COALESCE(SUM(l.points), 0)')
+            ->andWhere('l.company = :companyId')
+            ->andWhere('l.entryType = :entryType')
+            ->andWhere('l.createdAt >= :since')
+            ->setParameter('companyId', $companyId)
+            ->setParameter('entryType', PointsLedgerEntry::TYPE_CREDIT)
+            ->setParameter('since', $since)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $sum;
+    }
+
+    public function countCompanyCreditEntriesSince(int $companyId, \DateTimeImmutable $since): int
+    {
+        $count = $this->createQueryBuilder('l')
+            ->select('COUNT(l.id)')
+            ->andWhere('l.company = :companyId')
+            ->andWhere('l.entryType = :entryType')
+            ->andWhere('l.createdAt >= :since')
+            ->setParameter('companyId', $companyId)
+            ->setParameter('entryType', PointsLedgerEntry::TYPE_CREDIT)
+            ->setParameter('since', $since)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $count;
+    }
+
+    public function countCompanyCreditEntriesByReferenceSince(int $companyId, string $referenceType, \DateTimeImmutable $since): int
+    {
+        $count = $this->createQueryBuilder('l')
+            ->select('COUNT(l.id)')
+            ->andWhere('l.company = :companyId')
+            ->andWhere('l.entryType = :entryType')
+            ->andWhere('l.referenceType = :referenceType')
+            ->andWhere('l.createdAt >= :since')
+            ->setParameter('companyId', $companyId)
+            ->setParameter('entryType', PointsLedgerEntry::TYPE_CREDIT)
+            ->setParameter('referenceType', $referenceType)
+            ->setParameter('since', $since)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $count;
+    }
+
+    public function sumUserCreditPointsSince(int $userId, \DateTimeImmutable $since): int
+    {
+        $sum = $this->createQueryBuilder('l')
+            ->select('COALESCE(SUM(l.points), 0)')
+            ->andWhere('l.user = :userId')
+            ->andWhere('l.entryType = :entryType')
+            ->andWhere('l.createdAt >= :since')
+            ->setParameter('userId', $userId)
+            ->setParameter('entryType', PointsLedgerEntry::TYPE_CREDIT)
+            ->setParameter('since', $since)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $sum;
+    }
+
+    public function countUserCreditEntriesSince(int $userId, \DateTimeImmutable $since): int
+    {
+        $count = $this->createQueryBuilder('l')
+            ->select('COUNT(l.id)')
+            ->andWhere('l.user = :userId')
+            ->andWhere('l.entryType = :entryType')
+            ->andWhere('l.createdAt >= :since')
+            ->setParameter('userId', $userId)
+            ->setParameter('entryType', PointsLedgerEntry::TYPE_CREDIT)
+            ->setParameter('since', $since)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $count;
+    }
+
     public function getCompanyBalance(int $companyId): int
     {
         $balance = $this->createQueryBuilder('l')

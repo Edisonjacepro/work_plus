@@ -18,6 +18,7 @@ class CandidatePointsService
     public function __construct(
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
         private readonly ImpactScoreRepository $impactScoreRepository,
+        private readonly PointsPolicyService $pointsPolicyService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -25,12 +26,14 @@ class CandidatePointsService
     public function awardApplicationHiredPoints(Application $application): ?PointsLedgerEntry
     {
         $candidate = $application->getCandidate();
+        $candidateId = $candidate?->getId();
         $applicationId = $application->getId();
         $offer = $application->getOffer();
         $offerId = $offer?->getId();
 
         if (
             !$candidate instanceof User
+            || null === $candidateId
             || null === $applicationId
             || null === $offerId
             || Application::STATUS_HIRED !== $application->getStatus()
@@ -46,6 +49,14 @@ class CandidatePointsService
         $impactScore = $this->impactScoreRepository->findLatestForOffer($offerId);
         $impactBonus = $this->computeImpactBonus($impactScore);
         $points = self::BASE_HIRED_POINTS + $impactBonus;
+        $policyDecision = $this->pointsPolicyService->evaluateUserCredit(
+            user: $candidate,
+            points: $points,
+            referenceType: PointsLedgerEntry::REFERENCE_APPLICATION_HIRED,
+        );
+        if (is_array($policyDecision)) {
+            return null;
+        }
 
         $entry = (new PointsLedgerEntry())
             ->setEntryType(PointsLedgerEntry::TYPE_CREDIT)
@@ -62,6 +73,7 @@ class CandidatePointsService
                 'basePoints' => self::BASE_HIRED_POINTS,
                 'impactBonusPoints' => $impactBonus,
                 'offerImpactScore' => $impactScore?->getTotalScore(),
+                'policyRuleVersion' => PointsPolicyService::RULE_VERSION,
             ]);
 
         $this->entityManager->persist($entry);

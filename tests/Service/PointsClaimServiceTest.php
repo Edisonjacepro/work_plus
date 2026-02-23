@@ -9,7 +9,7 @@ use App\Entity\PointsLedgerEntry;
 use App\Entity\User;
 use App\Repository\PointsClaimRepository;
 use App\Repository\PointsLedgerEntryRepository;
-use App\Service\PointsAntiFraudService;
+use App\Service\PointsPolicyService;
 use App\Service\PointsClaimService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -20,9 +20,9 @@ class PointsClaimServiceTest extends TestCase
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
-        $antiFraudService = $this->createMock(PointsAntiFraudService::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $antiFraudService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $entityManager);
 
         $existing = (new PointsClaim())->setIdempotencyKey('claim-key-1');
 
@@ -33,7 +33,7 @@ class PointsClaimServiceTest extends TestCase
 
         $entityManager->expects(self::never())->method('persist');
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
-        $antiFraudService->expects(self::never())->method('evaluateApproval');
+        $policyService->expects(self::never())->method('evaluateCompanyCredit');
 
         $result = $service->submit(
             new Company(),
@@ -49,9 +49,9 @@ class PointsClaimServiceTest extends TestCase
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
-        $antiFraudService = $this->createMock(PointsAntiFraudService::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $antiFraudService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 7);
@@ -65,9 +65,9 @@ class PointsClaimServiceTest extends TestCase
             ->method('hasEvidenceHashForCompany')
             ->with(7, self::callback(static fn (mixed $value): bool => is_string($value)))
             ->willReturn(false);
-        $antiFraudService->expects(self::once())
-            ->method('evaluateApproval')
-            ->with($company, 25)
+        $policyService->expects(self::once())
+            ->method('evaluateCompanyCredit')
+            ->with($company, 25, PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL)
             ->willReturn(null);
 
         $ledgerRepository->expects(self::once())
@@ -136,9 +136,9 @@ class PointsClaimServiceTest extends TestCase
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
-        $antiFraudService = $this->createMock(PointsAntiFraudService::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $antiFraudService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 17);
@@ -153,13 +153,13 @@ class PointsClaimServiceTest extends TestCase
             ->with(17, self::callback(static fn (mixed $value): bool => is_string($value)))
             ->willReturn(false);
 
-        $antiFraudService->expects(self::once())
-            ->method('evaluateApproval')
-            ->with($company, 25)
+        $policyService->expects(self::once())
+            ->method('evaluateCompanyCredit')
+            ->with($company, 25, PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL)
             ->willReturn([
                 'reasonCode' => PointsClaim::REASON_CODE_ANTI_FRAUD_DAILY_POINTS_CAP,
-                'reasonText' => 'Cap journalier de points depasse.',
-                'metadata' => ['cap' => 60, 'approvedPoints' => 50, 'suggestedPoints' => 25],
+                'reasonText' => 'Cap journalier de points entreprise depasse.',
+                'metadata' => ['cap' => 180, 'currentPoints' => 170, 'points' => 25],
             ]);
 
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
@@ -198,9 +198,9 @@ class PointsClaimServiceTest extends TestCase
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
-        $antiFraudService = $this->createMock(PointsAntiFraudService::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $antiFraudService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 8);
@@ -216,7 +216,7 @@ class PointsClaimServiceTest extends TestCase
             ->willReturn(false);
 
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
-        $antiFraudService->expects(self::never())->method('evaluateApproval');
+        $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $entityManager->expects(self::exactly(3))->method('persist');
 
         $claim = $service->submit(
@@ -245,9 +245,9 @@ class PointsClaimServiceTest extends TestCase
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
-        $antiFraudService = $this->createMock(PointsAntiFraudService::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $antiFraudService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 9);
@@ -255,7 +255,7 @@ class PointsClaimServiceTest extends TestCase
         $claimRepository->method('findOneByIdempotencyKey')->willReturn(null);
         $claimRepository->method('hasEvidenceHashForCompany')->willReturn(false);
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
-        $antiFraudService->expects(self::never())->method('evaluateApproval');
+        $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $entityManager->expects(self::exactly(3))->method('persist');
 
         $claim = $service->submit(
@@ -278,9 +278,9 @@ class PointsClaimServiceTest extends TestCase
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
-        $antiFraudService = $this->createMock(PointsAntiFraudService::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $antiFraudService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 11);
@@ -292,7 +292,7 @@ class PointsClaimServiceTest extends TestCase
             ->willReturn(true);
 
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
-        $antiFraudService->expects(self::never())->method('evaluateApproval');
+        $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $entityManager->expects(self::exactly(3))->method('persist');
 
         $claim = $service->submit(
@@ -315,9 +315,9 @@ class PointsClaimServiceTest extends TestCase
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
-        $antiFraudService = $this->createMock(PointsAntiFraudService::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $antiFraudService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $reviewer = (new User())->setEmail('reviewer@example.com')->setPassword('secret');
@@ -330,7 +330,7 @@ class PointsClaimServiceTest extends TestCase
             ->setIdempotencyKey('claim-key-4');
 
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
-        $antiFraudService->expects(self::never())->method('evaluateApproval');
+        $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $entityManager->expects(self::never())->method('persist');
 
         $this->expectException(\LogicException::class);
@@ -348,9 +348,9 @@ class PointsClaimServiceTest extends TestCase
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
-        $antiFraudService = $this->createMock(PointsAntiFraudService::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $antiFraudService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $entityManager);
 
         $claim = (new PointsClaim())
             ->setStatus(PointsClaim::STATUS_SUBMITTED)
@@ -361,7 +361,7 @@ class PointsClaimServiceTest extends TestCase
 
         $entityManager->expects(self::never())->method('persist');
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
-        $antiFraudService->expects(self::never())->method('evaluateApproval');
+        $policyService->expects(self::never())->method('evaluateCompanyCredit');
 
         $this->expectException(\LogicException::class);
         $service->reject($claim, $reviewer, PointsClaim::REASON_CODE_REJECTED_BY_REVIEWER, 'comment');
@@ -374,3 +374,4 @@ class PointsClaimServiceTest extends TestCase
         $reflection->setValue($entity, $id);
     }
 }
+
