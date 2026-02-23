@@ -9,6 +9,7 @@ use App\Entity\PointsLedgerEntry;
 use App\Entity\User;
 use App\Repository\PointsLedgerEntryRepository;
 use App\Service\PointsLedgerService;
+use App\Service\PointsPolicyService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -17,8 +18,9 @@ class PointsLedgerServiceTest extends TestCase
     public function testAwardOfferPublicationPointsCreatesCreditEntry(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsLedgerService($repository, $entityManager);
+        $service = new PointsLedgerService($repository, $policyService, $entityManager);
 
         $offer = $this->buildOfferWithId(10);
         $impactScore = (new ImpactScore())
@@ -32,6 +34,10 @@ class PointsLedgerServiceTest extends TestCase
             ->method('existsByIdempotencyKey')
             ->with('offer_publication_company_10')
             ->willReturn(false);
+        $policyService->expects(self::once())
+            ->method('evaluateCompanyCredit')
+            ->with($offer->getCompany(), 95, PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION)
+            ->willReturn(null);
 
         $entityManager->expects(self::once())
             ->method('persist')
@@ -55,8 +61,9 @@ class PointsLedgerServiceTest extends TestCase
     public function testAwardOfferPublicationPointsSkipsExistingIdempotencyKey(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsLedgerService($repository, $entityManager);
+        $service = new PointsLedgerService($repository, $policyService, $entityManager);
 
         $offer = $this->buildOfferWithId(11);
         $impactScore = (new ImpactScore())
@@ -70,6 +77,42 @@ class PointsLedgerServiceTest extends TestCase
             ->method('existsByIdempotencyKey')
             ->with('offer_publication_company_11')
             ->willReturn(true);
+        $policyService->expects(self::never())->method('evaluateCompanyCredit');
+
+        $entityManager->expects(self::never())->method('persist');
+
+        $entry = $service->awardOfferPublicationPoints($offer, $impactScore);
+
+        self::assertNull($entry);
+    }
+
+    public function testAwardOfferPublicationPointsSkipsWhenPolicyBlocksCredit(): void
+    {
+        $repository = $this->createMock(PointsLedgerEntryRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $service = new PointsLedgerService($repository, $policyService, $entityManager);
+
+        $offer = $this->buildOfferWithId(12);
+        $impactScore = (new ImpactScore())
+            ->setTotalScore(70)
+            ->setSocietyScore(50)
+            ->setBiodiversityScore(40)
+            ->setGhgScore(45)
+            ->setConfidence(0.85);
+
+        $repository->expects(self::once())
+            ->method('existsByIdempotencyKey')
+            ->with('offer_publication_company_12')
+            ->willReturn(false);
+        $policyService->expects(self::once())
+            ->method('evaluateCompanyCredit')
+            ->with($offer->getCompany(), 85, PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION)
+            ->willReturn([
+                'reasonCode' => 'FREEMIUM_MONTHLY_OFFER_PUBLICATION_CAP',
+                'reasonText' => 'Quota depasse.',
+                'metadata' => [],
+            ]);
 
         $entityManager->expects(self::never())->method('persist');
 
@@ -81,8 +124,9 @@ class PointsLedgerServiceTest extends TestCase
     public function testGetCompanyBalanceUsesRepositoryAggregation(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsLedgerService($repository, $entityManager);
+        $service = new PointsLedgerService($repository, $policyService, $entityManager);
 
         $company = (new Company())->setName('Work Plus');
         $this->setEntityId($company, 5);
@@ -98,8 +142,9 @@ class PointsLedgerServiceTest extends TestCase
     public function testGetCompanySummaryReturnsBalanceAndHistory(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsLedgerService($repository, $entityManager);
+        $service = new PointsLedgerService($repository, $policyService, $entityManager);
 
         $company = (new Company())->setName('Work Plus');
         $this->setEntityId($company, 7);

@@ -13,6 +13,7 @@ class PointsLedgerService
 {
     public function __construct(
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
+        private readonly PointsPolicyService $pointsPolicyService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -21,8 +22,9 @@ class PointsLedgerService
     {
         $offerId = $offer->getId();
         $company = $offer->getCompany();
+        $companyId = $company?->getId();
 
-        if (null === $offerId || !$company instanceof Company) {
+        if (null === $offerId || !$company instanceof Company || null === $companyId) {
             return null;
         }
 
@@ -33,6 +35,15 @@ class PointsLedgerService
 
         $points = $this->computePublicationPoints($impactScore);
         if ($points <= 0) {
+            return null;
+        }
+
+        $policyDecision = $this->pointsPolicyService->evaluateCompanyCredit(
+            company: $company,
+            points: $points,
+            referenceType: PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION,
+        );
+        if (is_array($policyDecision)) {
             return null;
         }
 
@@ -52,6 +63,7 @@ class PointsLedgerService
                 'societyScore' => $impactScore->getSocietyScore(),
                 'biodiversityScore' => $impactScore->getBiodiversityScore(),
                 'ghgScore' => $impactScore->getGhgScore(),
+                'policyRuleVersion' => PointsPolicyService::RULE_VERSION,
             ]);
 
         $this->entityManager->persist($entry);

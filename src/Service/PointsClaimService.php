@@ -17,7 +17,7 @@ class PointsClaimService
     public function __construct(
         private readonly PointsClaimRepository $pointsClaimRepository,
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
-        private readonly PointsAntiFraudService $pointsAntiFraudService,
+        private readonly PointsPolicyService $pointsPolicyService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -112,19 +112,23 @@ class PointsClaimService
                 ],
             );
         } elseif ($evidenceScore >= 70) {
-            $antiFraudDecision = $this->pointsAntiFraudService->evaluateApproval($company, $suggestedPoints);
-            if (is_array($antiFraudDecision)) {
+            $policyDecision = $this->pointsPolicyService->evaluateCompanyCredit(
+                company: $company,
+                points: $suggestedPoints,
+                referenceType: PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
+            );
+            if (is_array($policyDecision)) {
                 $claim
                     ->setStatus(PointsClaim::STATUS_REJECTED)
-                    ->setDecisionReasonCode($antiFraudDecision['reasonCode'])
-                    ->setDecisionReason($antiFraudDecision['reasonText'])
+                    ->setDecisionReasonCode($policyDecision['reasonCode'])
+                    ->setDecisionReason($policyDecision['reasonText'])
                     ->setReviewedAt(new \DateTimeImmutable());
                 $this->createReviewEvent(
                     pointsClaim: $claim,
                     action: PointsClaimReviewEvent::ACTION_AUTO_REJECTED,
-                    reasonCode: $antiFraudDecision['reasonCode'],
+                    reasonCode: $policyDecision['reasonCode'],
                     reasonText: null,
-                    metadata: $antiFraudDecision['metadata'],
+                    metadata: $policyDecision['metadata'],
                 );
             } else {
                 $claim

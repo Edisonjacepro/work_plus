@@ -10,6 +10,7 @@ use App\Entity\User;
 use App\Repository\ImpactScoreRepository;
 use App\Repository\PointsLedgerEntryRepository;
 use App\Service\CandidatePointsService;
+use App\Service\PointsPolicyService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -19,8 +20,9 @@ class CandidatePointsServiceTest extends TestCase
     {
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $impactScoreRepository = $this->createMock(ImpactScoreRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $entityManager);
+        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $policyService, $entityManager);
 
         $candidate = (new User())->setEmail('candidate@example.com')->setAccountType(User::ACCOUNT_TYPE_PERSON);
         $offer = (new Offer())->setTitle('Offer')->setDescription('Description');
@@ -47,6 +49,10 @@ class CandidatePointsServiceTest extends TestCase
             ->method('findLatestForOffer')
             ->with(9)
             ->willReturn($impactScore);
+        $policyService->expects(self::once())
+            ->method('evaluateUserCredit')
+            ->with($candidate, 13, PointsLedgerEntry::REFERENCE_APPLICATION_HIRED)
+            ->willReturn(null);
 
         $entityManager->expects(self::once())
             ->method('persist')
@@ -72,8 +78,9 @@ class CandidatePointsServiceTest extends TestCase
     {
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $impactScoreRepository = $this->createMock(ImpactScoreRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $entityManager);
+        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $policyService, $entityManager);
 
         $offer = (new Offer())->setTitle('Offer')->setDescription('Description');
         $application = (new Application())
@@ -84,6 +91,7 @@ class CandidatePointsServiceTest extends TestCase
 
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
         $impactScoreRepository->expects(self::never())->method('findLatestForOffer');
+        $policyService->expects(self::never())->method('evaluateUserCredit');
         $entityManager->expects(self::never())->method('persist');
 
         self::assertNull($service->awardApplicationHiredPoints($application));
@@ -93,8 +101,9 @@ class CandidatePointsServiceTest extends TestCase
     {
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $impactScoreRepository = $this->createMock(ImpactScoreRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $entityManager);
+        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $policyService, $entityManager);
 
         $candidate = (new User())->setEmail('candidate@example.com')->setAccountType(User::ACCOUNT_TYPE_PERSON);
         $offer = (new Offer())->setTitle('Offer')->setDescription('Description');
@@ -108,6 +117,54 @@ class CandidatePointsServiceTest extends TestCase
 
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
         $impactScoreRepository->expects(self::never())->method('findLatestForOffer');
+        $policyService->expects(self::never())->method('evaluateUserCredit');
+        $entityManager->expects(self::never())->method('persist');
+
+        self::assertNull($service->awardApplicationHiredPoints($application));
+    }
+
+    public function testAwardApplicationHiredPointsReturnsNullWhenPolicyBlocksCredit(): void
+    {
+        $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
+        $impactScoreRepository = $this->createMock(ImpactScoreRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $policyService, $entityManager);
+
+        $candidate = (new User())->setEmail('candidate@example.com')->setAccountType(User::ACCOUNT_TYPE_PERSON);
+        $offer = (new Offer())->setTitle('Offer')->setDescription('Description');
+        $application = (new Application())
+            ->setCandidate($candidate)
+            ->setOffer($offer)
+            ->setStatus(Application::STATUS_HIRED);
+
+        $this->setEntityId($candidate, 3);
+        $this->setEntityId($offer, 9);
+        $this->setEntityId($application, 14);
+
+        $impactScore = (new ImpactScore())
+            ->setOffer($offer)
+            ->setTotalScore(80)
+            ->setRuleVersion('v1_test');
+
+        $ledgerRepository->expects(self::once())
+            ->method('existsByIdempotencyKey')
+            ->with('application_hired_candidate_14')
+            ->willReturn(false);
+
+        $impactScoreRepository->expects(self::once())
+            ->method('findLatestForOffer')
+            ->with(9)
+            ->willReturn($impactScore);
+        $policyService->expects(self::once())
+            ->method('evaluateUserCredit')
+            ->with($candidate, 13, PointsLedgerEntry::REFERENCE_APPLICATION_HIRED)
+            ->willReturn([
+                'reasonCode' => 'USER_DAILY_POINTS_CAP',
+                'reasonText' => 'Cap depasse.',
+                'metadata' => [],
+            ]);
+
         $entityManager->expects(self::never())->method('persist');
 
         self::assertNull($service->awardApplicationHiredPoints($application));
@@ -117,8 +174,9 @@ class CandidatePointsServiceTest extends TestCase
     {
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $impactScoreRepository = $this->createMock(ImpactScoreRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $entityManager);
+        $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $policyService, $entityManager);
 
         $candidate = (new User())->setEmail('candidate@example.com')->setAccountType(User::ACCOUNT_TYPE_PERSON);
         $this->setEntityId($candidate, 55);
