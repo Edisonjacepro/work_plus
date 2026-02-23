@@ -19,10 +19,19 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class CompanyController extends AbstractController
 {
     #[Route('', name: 'company_index', methods: ['GET'])]
-    public function index(CompanyRepository $companyRepository): Response
+    public function index(Request $request, CompanyRepository $companyRepository): Response
     {
+        $perPage = 12;
+        $currentPage = max(1, $request->query->getInt('page', 1));
+        $result = $companyRepository->findPaginated($currentPage, $perPage);
+        $total = $result['total'];
+        $totalPages = max(1, (int) ceil($total / $perPage));
+
         return $this->render('company/index.html.twig', [
-            'companies' => $companyRepository->findAll(),
+            'companies' => $result['items'],
+            'currentPage' => $currentPage,
+            'totalPages' => $totalPages,
+            'totalItems' => $total,
         ]);
     }
 

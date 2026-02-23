@@ -4,6 +4,7 @@
 
 {% block body %}
     <h1>Candidatures recues</h1>
+    <p><small>{{ totalItems }} resultat(s)</small></p>
 
     {% if applications is empty %}
         <p>Aucune candidature pour le moment.</p>
@@ -36,5 +37,17 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if totalPages > 1 %}
+            <nav aria-label="Pagination candidatures recruteur">
+                {% if currentPage > 1 %}
+                    <a href="{{ path('application_recruiter_index', {page: currentPage - 1}) }}">Page precedente</a>
+                {% endif %}
+                <span>Page {{ currentPage }} / {{ totalPages }}</span>
+                {% if currentPage < totalPages %}
+                    <a href="{{ path('application_recruiter_index', {page: currentPage + 1}) }}">Page suivante</a>
+                {% endif %}
+            </nav>
+        {% endif %}
     {% endif %}
 {% endblock %}

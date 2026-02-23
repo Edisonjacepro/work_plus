@@ -28,16 +28,25 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class OfferController extends AbstractController
 {
     #[Route('', name: 'offer_index', methods: ['GET'])]
-    public function index(OfferRepository $offerRepository): Response
+    public function index(Request $request, OfferRepository $offerRepository): Response
     {
+        $perPage = 12;
+        $currentPage = max(1, $request->query->getInt('page', 1));
+        $result = $offerRepository->findPublicPublishedPaginated($currentPage, $perPage);
+        $total = $result['total'];
+        $totalPages = max(1, (int) ceil($total / $perPage));
+
         return $this->render('offer/index.html.twig', [
-            'offers' => $offerRepository->findPublicPublished(),
+            'offers' => $result['items'],
+            'currentPage' => $currentPage,
+            'totalPages' => $totalPages,
+            'totalItems' => $total,
         ]);
     }
 
     #[Route('/recruiter', name: 'recruiter_offer_index', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
-    public function recruiterIndex(OfferRepository $offerRepository): Response
+    public function recruiterIndex(Request $request, OfferRepository $offerRepository): Response
     {
         $user = $this->getUser();
         if (!$user instanceof User || !$user->isCompany()) {
@@ -45,14 +54,31 @@ class OfferController extends AbstractController
             return $this->redirectToRoute('offer_index');
         }
 
+        $perPage = 20;
+        $currentPage = max(1, $request->query->getInt('page', 1));
+
         if ($this->isGranted('ROLE_ADMIN')) {
+            $result = $offerRepository->findAllPaginated($currentPage, $perPage);
+            $total = $result['total'];
+            $totalPages = max(1, (int) ceil($total / $perPage));
+
             return $this->render('offer/recruiter_index.html.twig', [
-                'offers' => $offerRepository->findAll(),
+                'offers' => $result['items'],
+                'currentPage' => $currentPage,
+                'totalPages' => $totalPages,
+                'totalItems' => $total,
             ]);
         }
 
+        $result = $offerRepository->findByAuthorPaginated((int) ($user->getId() ?? 0), $currentPage, $perPage);
+        $total = $result['total'];
+        $totalPages = max(1, (int) ceil($total / $perPage));
+
         return $this->render('offer/recruiter_index.html.twig', [
-            'offers' => $offerRepository->findByAuthor($user->getId() ?? 0),
+            'offers' => $result['items'],
+            'currentPage' => $currentPage,
+            'totalPages' => $totalPages,
+            'totalItems' => $total,
         ]);
     }
 

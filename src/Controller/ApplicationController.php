@@ -28,7 +28,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ApplicationController extends AbstractController
 {
     #[Route('/recruiter', name: 'application_recruiter_index', methods: ['GET'])]
-    public function recruiterIndex(ApplicationRepository $applicationRepository): Response
+    public function recruiterIndex(Request $request, ApplicationRepository $applicationRepository): Response
     {
         $user = $this->getUser();
         if (!$user instanceof User || !$user->isCompany()) {
@@ -36,17 +36,28 @@ class ApplicationController extends AbstractController
             return $this->redirectToRoute('home');
         }
 
-        $applications = $this->isGranted('ROLE_ADMIN')
-            ? $applicationRepository->findBy([], ['createdAt' => 'DESC'])
-            : $applicationRepository->findForRecruiter($user);
+        $perPage = 20;
+        $currentPage = max(1, $request->query->getInt('page', 1));
+        if ($this->isGranted('ROLE_ADMIN')) {
+            $result = $applicationRepository->findAllPaginated($currentPage, $perPage);
+        } else {
+            $result = $applicationRepository->findForRecruiterPaginated($user, $currentPage, $perPage);
+        }
+
+        $total = $result['total'];
+        $totalPages = max(1, (int) ceil($total / $perPage));
 
         return $this->render('application/recruiter_index.html.twig', [
-            'applications' => $applications,
+            'applications' => $result['items'],
+            'currentPage' => $currentPage,
+            'totalPages' => $totalPages,
+            'totalItems' => $total,
         ]);
     }
 
     #[Route('/me', name: 'application_candidate_index', methods: ['GET'])]
     public function candidateIndex(
+        Request $request,
         ApplicationRepository $applicationRepository,
         CandidatePointsService $candidatePointsService
     ): Response
@@ -57,14 +68,22 @@ class ApplicationController extends AbstractController
             return $this->redirectToRoute('home');
         }
 
+        $perPage = 20;
+        $currentPage = max(1, $request->query->getInt('page', 1));
+        $result = $applicationRepository->findForCandidatePaginated($user, $currentPage, $perPage);
+        $total = $result['total'];
+        $totalPages = max(1, (int) ceil($total / $perPage));
         $summary = $candidatePointsService->getCandidateSummary($user);
 
         return $this->render('application/candidate_index.html.twig', [
-            'applications' => $applicationRepository->findForCandidate($user),
+            'applications' => $result['items'],
             'candidate' => $user,
             'candidatePointsBalance' => $summary['balance'],
             'candidatePointsLevel' => $summary['level'],
             'candidatePointsHistory' => $summary['history'],
+            'currentPage' => $currentPage,
+            'totalPages' => $totalPages,
+            'totalItems' => $total,
         ]);
     }
 
