@@ -55,6 +55,7 @@
 
     <section>
         <h2>Mes candidatures</h2>
+        <p><small>{{ totalItems }} resultat(s)</small></p>
         {% if applications is empty %}
             <p>Vous n'avez pas encore postule.</p>
         {% else %}
@@ -84,6 +85,18 @@
                     {% endfor %}
                 </tbody>
             </table>
+
+            {% if totalPages > 1 %}
+                <nav aria-label="Pagination candidatures candidat">
+                    {% if currentPage > 1 %}
+                        <a href="{{ path('application_candidate_index', {page: currentPage - 1}) }}">Page precedente</a>
+                    {% endif %}
+                    <span>Page {{ currentPage }} / {{ totalPages }}</span>
+                    {% if currentPage < totalPages %}
+                        <a href="{{ path('application_candidate_index', {page: currentPage + 1}) }}">Page suivante</a>
+                    {% endif %}
+                </nav>
+            {% endif %}
         {% endif %}
     </section>
 {% endblock %}

@@ -4,6 +4,7 @@
 
 {% block body %}
     <h1>Entreprises</h1>
+    <p><small>{{ totalItems }} resultat(s)</small></p>
 
     {% if app.user and app.user.isCompany %}
         {% if app.user.company %}
@@ -26,5 +27,17 @@
                 </li>
             {% endfor %}
         </ul>
+
+        {% if totalPages > 1 %}
+            <nav aria-label="Pagination entreprises">
+                {% if currentPage > 1 %}
+                    <a href="{{ path('company_index', {page: currentPage - 1}) }}">Page precedente</a>
+                {% endif %}
+                <span>Page {{ currentPage }} / {{ totalPages }}</span>
+                {% if currentPage < totalPages %}
+                    <a href="{{ path('company_index', {page: currentPage + 1}) }}">Page suivante</a>
+                {% endif %}
+            </nav>
+        {% endif %}
     {% endif %}
 {% endblock %}

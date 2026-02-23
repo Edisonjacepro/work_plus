@@ -4,6 +4,7 @@
 
 {% block body %}
     <h1>Mes offres</h1>
+    <p><small>{{ totalItems }} resultat(s)</small></p>
 
     <p><a href="{{ path('offer_new') }}">Creer une offre</a></p>
 
@@ -24,5 +25,17 @@
                 </li>
             {% endfor %}
         </ul>
+
+        {% if totalPages > 1 %}
+            <nav aria-label="Pagination offres recruteur">
+                {% if currentPage > 1 %}
+                    <a href="{{ path('recruiter_offer_index', {page: currentPage - 1}) }}">Page precedente</a>
+                {% endif %}
+                <span>Page {{ currentPage }} / {{ totalPages }}</span>
+                {% if currentPage < totalPages %}
+                    <a href="{{ path('recruiter_offer_index', {page: currentPage + 1}) }}">Page suivante</a>
+                {% endif %}
+            </nav>
+        {% endif %}
     {% endif %}
 {% endblock %}

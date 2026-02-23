@@ -43,4 +43,101 @@ class ApplicationRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * @return array{items: list<Application>, total: int}
+     */
+    public function findForRecruiterPaginated(User $user, int $page, int $perPage): array
+    {
+        $offset = max(0, ($page - 1) * $perPage);
+
+        $qb = $this->createQueryBuilder('a')
+            ->innerJoin('a.offer', 'o')
+            ->leftJoin('o.company', 'c')
+            ->addSelect('o', 'c')
+            ->andWhere('o.author = :author')
+            ->setParameter('author', $user);
+
+        $items = (clone $qb)
+            ->orderBy('a.createdAt', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
+            ->setFirstResult($offset)
+            ->setMaxResults($perPage)
+            ->getQuery()
+            ->getResult();
+
+        $total = (int) (clone $qb)
+            ->select('COUNT(a.id)')
+            ->resetDQLPart('orderBy')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return [
+            'items' => $items,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * @return array{items: list<Application>, total: int}
+     */
+    public function findForCandidatePaginated(User $user, int $page, int $perPage): array
+    {
+        $offset = max(0, ($page - 1) * $perPage);
+
+        $qb = $this->createQueryBuilder('a')
+            ->innerJoin('a.offer', 'o')
+            ->leftJoin('o.company', 'c')
+            ->addSelect('o', 'c')
+            ->andWhere('a.candidate = :candidate')
+            ->setParameter('candidate', $user);
+
+        $items = (clone $qb)
+            ->orderBy('a.createdAt', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
+            ->setFirstResult($offset)
+            ->setMaxResults($perPage)
+            ->getQuery()
+            ->getResult();
+
+        $total = (int) (clone $qb)
+            ->select('COUNT(a.id)')
+            ->resetDQLPart('orderBy')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return [
+            'items' => $items,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * @return array{items: list<Application>, total: int}
+     */
+    public function findAllPaginated(int $page, int $perPage): array
+    {
+        $offset = max(0, ($page - 1) * $perPage);
+
+        $items = $this->createQueryBuilder('a')
+            ->innerJoin('a.offer', 'o')
+            ->leftJoin('o.company', 'c')
+            ->addSelect('o', 'c')
+            ->orderBy('a.createdAt', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
+            ->setFirstResult($offset)
+            ->setMaxResults($perPage)
+            ->getQuery()
+            ->getResult();
+
+        $total = (int) $this->createQueryBuilder('a')
+            ->select('COUNT(a.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return [
+            'items' => $items,
+            'total' => $total,
+        ];
+    }
 }
