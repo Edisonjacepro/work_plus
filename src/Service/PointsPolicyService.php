@@ -12,19 +12,41 @@ class PointsPolicyService
 {
     public const RULE_VERSION = 'points_policy_v1_2026_02';
 
-    public const COMPANY_DAILY_POINTS_CAP = 180;
-    public const COMPANY_DAILY_CREDITS_CAP = 6;
-    public const COMPANY_MONTHLY_POINTS_CAP = 1500;
-    public const COMPANY_MONTHLY_OFFER_PUBLICATION_CAP = 60;
-    public const COMPANY_MONTHLY_POINTS_CLAIM_CAP = 25;
+    private const COMPANY_LIMIT_DAILY_POINTS = 'company_daily_points_cap';
+    private const COMPANY_LIMIT_DAILY_CREDITS = 'company_daily_credits_cap';
+    private const COMPANY_LIMIT_MONTHLY_POINTS = 'company_monthly_points_cap';
+    private const COMPANY_LIMIT_MONTHLY_OFFER_PUBLICATION = 'company_monthly_offer_publication_cap';
+    private const COMPANY_LIMIT_MONTHLY_POINTS_CLAIM = 'company_monthly_points_claim_cap';
+    private const USER_LIMIT_DAILY_POINTS = 'user_daily_points_cap';
+    private const USER_LIMIT_DAILY_CREDITS = 'user_daily_credits_cap';
+    private const USER_LIMIT_MONTHLY_POINTS = 'user_monthly_points_cap';
 
-    public const USER_DAILY_POINTS_CAP = 40;
-    public const USER_DAILY_CREDITS_CAP = 4;
-    public const USER_MONTHLY_POINTS_CAP = 400;
+    /**
+     * @var array<string, array<string, int>>
+     */
+    private array $companyPlanLimits;
+    /**
+     * @var array<string, int>
+     */
+    private array $userLimits;
+    private string $defaultCompanyPlanCode;
 
     public function __construct(
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
+        array $pointsPolicyCompanyPlanLimits,
+        array $pointsPolicyUserLimits,
+        string $pointsPolicyDefaultCompanyPlan,
     ) {
+        $this->defaultCompanyPlanCode = strtoupper(trim($pointsPolicyDefaultCompanyPlan));
+        if ('' === $this->defaultCompanyPlanCode) {
+            throw new \InvalidArgumentException('Default company plan code cannot be empty.');
+        }
+
+        $this->companyPlanLimits = $this->normalizeCompanyPlanLimits(
+            $pointsPolicyCompanyPlanLimits,
+            $this->defaultCompanyPlanCode,
+        );
+        $this->userLimits = $this->normalizeUserLimits($pointsPolicyUserLimits);
     }
 
     /**
@@ -48,56 +70,61 @@ class PointsPolicyService
         $referenceTime = $now ?? new \DateTimeImmutable('now');
         $dayStart = $referenceTime->setTime(0, 0);
         $monthStart = $referenceTime->modify('first day of this month')->setTime(0, 0);
+        $planCode = $this->resolveCompanyPlanCode($company, $referenceTime);
+        $planLimits = $this->companyPlanLimits[$planCode];
 
         $dailyPoints = $this->pointsLedgerEntryRepository->sumCompanyCreditPointsSince($companyId, $dayStart);
-        if (($dailyPoints + $points) > self::COMPANY_DAILY_POINTS_CAP) {
+        if (($dailyPoints + $points) > $planLimits[self::COMPANY_LIMIT_DAILY_POINTS]) {
             return $this->blockedDecision(
                 reasonCode: $this->resolveCompanyDailyPointsReasonCode($referenceType),
                 reasonText: 'Cap journalier de points entreprise depasse.',
                 metadata: [
                     'ruleVersion' => self::RULE_VERSION,
+                    'planCode' => $planCode,
                     'scope' => 'company',
                     'period' => 'day',
                     'periodStart' => $dayStart->format(DATE_ATOM),
                     'referenceType' => $referenceType,
                     'points' => $points,
                     'currentPoints' => $dailyPoints,
-                    'cap' => self::COMPANY_DAILY_POINTS_CAP,
+                    'cap' => $planLimits[self::COMPANY_LIMIT_DAILY_POINTS],
                 ],
             );
         }
 
         $dailyCredits = $this->pointsLedgerEntryRepository->countCompanyCreditEntriesSince($companyId, $dayStart);
-        if ($dailyCredits >= self::COMPANY_DAILY_CREDITS_CAP) {
+        if ($dailyCredits >= $planLimits[self::COMPANY_LIMIT_DAILY_CREDITS]) {
             return $this->blockedDecision(
                 reasonCode: $this->resolveCompanyDailyCreditsReasonCode($referenceType),
                 reasonText: 'Cap journalier de credits entreprise depasse.',
                 metadata: [
                     'ruleVersion' => self::RULE_VERSION,
+                    'planCode' => $planCode,
                     'scope' => 'company',
                     'period' => 'day',
                     'periodStart' => $dayStart->format(DATE_ATOM),
                     'referenceType' => $referenceType,
                     'currentCredits' => $dailyCredits,
-                    'cap' => self::COMPANY_DAILY_CREDITS_CAP,
+                    'cap' => $planLimits[self::COMPANY_LIMIT_DAILY_CREDITS],
                 ],
             );
         }
 
         $monthlyPoints = $this->pointsLedgerEntryRepository->sumCompanyCreditPointsSince($companyId, $monthStart);
-        if (($monthlyPoints + $points) > self::COMPANY_MONTHLY_POINTS_CAP) {
+        if (($monthlyPoints + $points) > $planLimits[self::COMPANY_LIMIT_MONTHLY_POINTS]) {
             return $this->blockedDecision(
                 reasonCode: $this->resolveCompanyMonthlyPointsReasonCode($referenceType),
                 reasonText: 'Cap mensuel de points entreprise depasse.',
                 metadata: [
                     'ruleVersion' => self::RULE_VERSION,
+                    'planCode' => $planCode,
                     'scope' => 'company',
                     'period' => 'month',
                     'periodStart' => $monthStart->format(DATE_ATOM),
                     'referenceType' => $referenceType,
                     'points' => $points,
                     'currentPoints' => $monthlyPoints,
-                    'cap' => self::COMPANY_MONTHLY_POINTS_CAP,
+                    'cap' => $planLimits[self::COMPANY_LIMIT_MONTHLY_POINTS],
                 ],
             );
         }
@@ -109,18 +136,19 @@ class PointsPolicyService
                 $monthStart,
             );
 
-            if ($offerCreditsMonth >= self::COMPANY_MONTHLY_OFFER_PUBLICATION_CAP) {
+            if ($offerCreditsMonth >= $planLimits[self::COMPANY_LIMIT_MONTHLY_OFFER_PUBLICATION]) {
                 return $this->blockedDecision(
                     reasonCode: 'FREEMIUM_MONTHLY_OFFER_PUBLICATION_CAP',
                     reasonText: 'Quota freemium mensuel des offres publiees depasse.',
                     metadata: [
                         'ruleVersion' => self::RULE_VERSION,
+                        'planCode' => $planCode,
                         'scope' => 'company',
                         'period' => 'month',
                         'periodStart' => $monthStart->format(DATE_ATOM),
                         'referenceType' => $referenceType,
                         'currentCredits' => $offerCreditsMonth,
-                        'cap' => self::COMPANY_MONTHLY_OFFER_PUBLICATION_CAP,
+                        'cap' => $planLimits[self::COMPANY_LIMIT_MONTHLY_OFFER_PUBLICATION],
                     ],
                 );
             }
@@ -133,18 +161,19 @@ class PointsPolicyService
                 $monthStart,
             );
 
-            if ($claimCreditsMonth >= self::COMPANY_MONTHLY_POINTS_CLAIM_CAP) {
+            if ($claimCreditsMonth >= $planLimits[self::COMPANY_LIMIT_MONTHLY_POINTS_CLAIM]) {
                 return $this->blockedDecision(
                     reasonCode: PointsClaim::REASON_CODE_FREEMIUM_MONTHLY_CLAIMS_QUOTA,
                     reasonText: 'Quota freemium mensuel des demandes de points depasse.',
                     metadata: [
                         'ruleVersion' => self::RULE_VERSION,
+                        'planCode' => $planCode,
                         'scope' => 'company',
                         'period' => 'month',
                         'periodStart' => $monthStart->format(DATE_ATOM),
                         'referenceType' => $referenceType,
                         'currentCredits' => $claimCreditsMonth,
-                        'cap' => self::COMPANY_MONTHLY_POINTS_CLAIM_CAP,
+                        'cap' => $planLimits[self::COMPANY_LIMIT_MONTHLY_POINTS_CLAIM],
                     ],
                 );
             }
@@ -174,9 +203,12 @@ class PointsPolicyService
         $referenceTime = $now ?? new \DateTimeImmutable('now');
         $dayStart = $referenceTime->setTime(0, 0);
         $monthStart = $referenceTime->modify('first day of this month')->setTime(0, 0);
+        $dailyPointsCap = $this->userLimits[self::USER_LIMIT_DAILY_POINTS];
+        $dailyCreditsCap = $this->userLimits[self::USER_LIMIT_DAILY_CREDITS];
+        $monthlyPointsCap = $this->userLimits[self::USER_LIMIT_MONTHLY_POINTS];
 
         $dailyPoints = $this->pointsLedgerEntryRepository->sumUserCreditPointsSince($userId, $dayStart);
-        if (($dailyPoints + $points) > self::USER_DAILY_POINTS_CAP) {
+        if (($dailyPoints + $points) > $dailyPointsCap) {
             return $this->blockedDecision(
                 reasonCode: 'USER_DAILY_POINTS_CAP',
                 reasonText: 'Cap journalier de points candidat depasse.',
@@ -188,13 +220,13 @@ class PointsPolicyService
                     'referenceType' => $referenceType,
                     'points' => $points,
                     'currentPoints' => $dailyPoints,
-                    'cap' => self::USER_DAILY_POINTS_CAP,
+                    'cap' => $dailyPointsCap,
                 ],
             );
         }
 
         $dailyCredits = $this->pointsLedgerEntryRepository->countUserCreditEntriesSince($userId, $dayStart);
-        if ($dailyCredits >= self::USER_DAILY_CREDITS_CAP) {
+        if ($dailyCredits >= $dailyCreditsCap) {
             return $this->blockedDecision(
                 reasonCode: 'USER_DAILY_CREDITS_CAP',
                 reasonText: 'Cap journalier de credits candidat depasse.',
@@ -205,13 +237,13 @@ class PointsPolicyService
                     'periodStart' => $dayStart->format(DATE_ATOM),
                     'referenceType' => $referenceType,
                     'currentCredits' => $dailyCredits,
-                    'cap' => self::USER_DAILY_CREDITS_CAP,
+                    'cap' => $dailyCreditsCap,
                 ],
             );
         }
 
         $monthlyPoints = $this->pointsLedgerEntryRepository->sumUserCreditPointsSince($userId, $monthStart);
-        if (($monthlyPoints + $points) > self::USER_MONTHLY_POINTS_CAP) {
+        if (($monthlyPoints + $points) > $monthlyPointsCap) {
             return $this->blockedDecision(
                 reasonCode: 'USER_MONTHLY_POINTS_CAP',
                 reasonText: 'Cap mensuel de points candidat depasse.',
@@ -223,7 +255,7 @@ class PointsPolicyService
                     'referenceType' => $referenceType,
                     'points' => $points,
                     'currentPoints' => $monthlyPoints,
-                    'cap' => self::USER_MONTHLY_POINTS_CAP,
+                    'cap' => $monthlyPointsCap,
                 ],
             );
         }
@@ -269,5 +301,85 @@ class PointsPolicyService
         }
 
         return 'COMPANY_MONTHLY_POINTS_CAP';
+    }
+
+    private function resolveCompanyPlanCode(Company $company, \DateTimeImmutable $referenceTime): string
+    {
+        $planCode = strtoupper(trim($company->getRecruiterPlanCode()));
+        if ('' === $planCode || !isset($this->companyPlanLimits[$planCode])) {
+            return $this->defaultCompanyPlanCode;
+        }
+
+        if (Company::RECRUITER_PLAN_STARTER !== $planCode && !$company->hasActivePaidPlan($referenceTime)) {
+            return $this->defaultCompanyPlanCode;
+        }
+
+        return $planCode;
+    }
+
+    /**
+     * @param array<string, mixed> $rawLimits
+     * @return array<string, array<string, int>>
+     */
+    private function normalizeCompanyPlanLimits(array $rawLimits, string $defaultPlanCode): array
+    {
+        $requiredKeys = [
+            self::COMPANY_LIMIT_DAILY_POINTS,
+            self::COMPANY_LIMIT_DAILY_CREDITS,
+            self::COMPANY_LIMIT_MONTHLY_POINTS,
+            self::COMPANY_LIMIT_MONTHLY_OFFER_PUBLICATION,
+            self::COMPANY_LIMIT_MONTHLY_POINTS_CLAIM,
+        ];
+        $normalized = [];
+
+        foreach ($rawLimits as $planCode => $planLimits) {
+            $normalizedPlanCode = strtoupper(trim((string) $planCode));
+            if ('' === $normalizedPlanCode || !is_array($planLimits)) {
+                continue;
+            }
+
+            $normalizedLimits = [];
+            foreach ($requiredKeys as $key) {
+                $value = $planLimits[$key] ?? null;
+                if (!is_numeric($value) || (int) $value <= 0) {
+                    throw new \InvalidArgumentException(sprintf('Invalid points policy limit "%s" for plan "%s".', $key, $normalizedPlanCode));
+                }
+
+                $normalizedLimits[$key] = (int) $value;
+            }
+
+            $normalized[$normalizedPlanCode] = $normalizedLimits;
+        }
+
+        if (!isset($normalized[$defaultPlanCode])) {
+            throw new \InvalidArgumentException('Default company plan limits are missing from points policy config.');
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, mixed> $rawUserLimits
+     * @return array<string, int>
+     */
+    private function normalizeUserLimits(array $rawUserLimits): array
+    {
+        $requiredKeys = [
+            self::USER_LIMIT_DAILY_POINTS,
+            self::USER_LIMIT_DAILY_CREDITS,
+            self::USER_LIMIT_MONTHLY_POINTS,
+        ];
+        $normalized = [];
+
+        foreach ($requiredKeys as $key) {
+            $value = $rawUserLimits[$key] ?? null;
+            if (!is_numeric($value) || (int) $value <= 0) {
+                throw new \InvalidArgumentException(sprintf('Invalid user points policy limit "%s".', $key));
+            }
+
+            $normalized[$key] = (int) $value;
+        }
+
+        return $normalized;
     }
 }

@@ -28,6 +28,9 @@ services:
             string $geoApiUrl: '%app.geo_api_url%'
             int $externalApiTimeoutSeconds: '%app.external_api_timeout_seconds%'
             string $billingProvider: '%app.billing_provider%'
+            array $pointsPolicyCompanyPlanLimits: '%app.points_policy.company_plan_limits%'
+            array $pointsPolicyUserLimits: '%app.points_policy.user_limits%'
+            string $pointsPolicyDefaultCompanyPlan: '%app.points_policy.default_company_plan%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name

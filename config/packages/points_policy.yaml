@@ -1,0 +1,25 @@
+parameters:
+    app.points_policy.default_company_plan: 'STARTER'
+    app.points_policy.company_plan_limits:
+        STARTER:
+            company_daily_points_cap: 180
+            company_daily_credits_cap: 6
+            company_monthly_points_cap: 1500
+            company_monthly_offer_publication_cap: 60
+            company_monthly_points_claim_cap: 25
+        GROWTH:
+            company_daily_points_cap: 320
+            company_daily_credits_cap: 12
+            company_monthly_points_cap: 4000
+            company_monthly_offer_publication_cap: 240
+            company_monthly_points_claim_cap: 80
+        SCALE:
+            company_daily_points_cap: 800
+            company_daily_credits_cap: 40
+            company_monthly_points_cap: 20000
+            company_monthly_offer_publication_cap: 2000
+            company_monthly_points_claim_cap: 600
+    app.points_policy.user_limits:
+        user_daily_points_cap: 40
+        user_daily_credits_cap: 4
+        user_monthly_points_cap: 400
