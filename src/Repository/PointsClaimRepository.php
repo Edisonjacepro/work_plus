@@ -21,6 +21,38 @@ class PointsClaimRepository extends ServiceEntityRepository
         return $this->findOneBy(['idempotencyKey' => $idempotencyKey]);
     }
 
+    public function sumApprovedPointsSince(int $companyId, \DateTimeImmutable $since): int
+    {
+        $total = $this->createQueryBuilder('c')
+            ->select('COALESCE(SUM(c.approvedPoints), 0)')
+            ->andWhere('c.company = :companyId')
+            ->andWhere('c.status = :status')
+            ->andWhere('(c.reviewedAt >= :since OR (c.reviewedAt IS NULL AND c.createdAt >= :since))')
+            ->setParameter('companyId', $companyId)
+            ->setParameter('status', PointsClaim::STATUS_APPROVED)
+            ->setParameter('since', $since)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $total;
+    }
+
+    public function countApprovedClaimsSince(int $companyId, \DateTimeImmutable $since): int
+    {
+        $count = $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->andWhere('c.company = :companyId')
+            ->andWhere('c.status = :status')
+            ->andWhere('(c.reviewedAt >= :since OR (c.reviewedAt IS NULL AND c.createdAt >= :since))')
+            ->setParameter('companyId', $companyId)
+            ->setParameter('status', PointsClaim::STATUS_APPROVED)
+            ->setParameter('since', $since)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $count;
+    }
+
     public function hasEvidenceHashForCompany(int $companyId, string $fileHash): bool
     {
         $sql = <<<'SQL'

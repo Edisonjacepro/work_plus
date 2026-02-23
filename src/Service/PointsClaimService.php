@@ -17,6 +17,7 @@ class PointsClaimService
     public function __construct(
         private readonly PointsClaimRepository $pointsClaimRepository,
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
+        private readonly PointsAntiFraudService $pointsAntiFraudService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -111,19 +112,35 @@ class PointsClaimService
                 ],
             );
         } elseif ($evidenceScore >= 70) {
-            $claim
-                ->setStatus(PointsClaim::STATUS_APPROVED)
-                ->setApprovedPoints($suggestedPoints)
-                ->setDecisionReasonCode(PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE)
-                ->setDecisionReason('Validation automatique par score.')
-                ->setReviewedAt(new \DateTimeImmutable());
-            $this->createReviewEvent(
-                pointsClaim: $claim,
-                action: PointsClaimReviewEvent::ACTION_AUTO_APPROVED,
-                reasonCode: PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE,
-                reasonText: null,
-                metadata: null,
-            );
+            $antiFraudDecision = $this->pointsAntiFraudService->evaluateApproval($company, $suggestedPoints);
+            if (is_array($antiFraudDecision)) {
+                $claim
+                    ->setStatus(PointsClaim::STATUS_REJECTED)
+                    ->setDecisionReasonCode($antiFraudDecision['reasonCode'])
+                    ->setDecisionReason($antiFraudDecision['reasonText'])
+                    ->setReviewedAt(new \DateTimeImmutable());
+                $this->createReviewEvent(
+                    pointsClaim: $claim,
+                    action: PointsClaimReviewEvent::ACTION_AUTO_REJECTED,
+                    reasonCode: $antiFraudDecision['reasonCode'],
+                    reasonText: null,
+                    metadata: $antiFraudDecision['metadata'],
+                );
+            } else {
+                $claim
+                    ->setStatus(PointsClaim::STATUS_APPROVED)
+                    ->setApprovedPoints($suggestedPoints)
+                    ->setDecisionReasonCode(PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE)
+                    ->setDecisionReason('Validation automatique par score.')
+                    ->setReviewedAt(new \DateTimeImmutable());
+                $this->createReviewEvent(
+                    pointsClaim: $claim,
+                    action: PointsClaimReviewEvent::ACTION_AUTO_APPROVED,
+                    reasonCode: PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE,
+                    reasonText: null,
+                    metadata: null,
+                );
+            }
         } else {
             $claim
                 ->setStatus(PointsClaim::STATUS_REJECTED)
