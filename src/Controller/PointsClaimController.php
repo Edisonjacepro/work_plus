@@ -73,6 +73,18 @@ class PointsClaimController extends AbstractController
                 $form->get('evidenceFiles')->addError(new FormError('Au moins un justificatif est requis.'));
             } else {
                 $requestRateLimiterService->consumePointsClaimSubmit($user);
+                $riskSummary = $pointsPolicyRiskService->getCompanyRiskSummary($company);
+                if (true === $riskSummary['cooldownActive']) {
+                    $cooldownUntil = $riskSummary['cooldownUntil'];
+                    $message = 'Delai de securite actif: vos nouvelles demandes de points sont temporairement bloquees.';
+                    if ($cooldownUntil instanceof \DateTimeImmutable) {
+                        $message .= ' Fin estimee: ' . $cooldownUntil->format('d/m/Y H:i') . '.';
+                    }
+
+                    $this->addFlash('error', $message);
+
+                    return $this->redirectToRoute('points_claim_index');
+                }
 
                 $fingerprints = [];
                 foreach ($uploadedFiles as $uploadedFile) {
