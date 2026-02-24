@@ -9,10 +9,12 @@ use App\Form\PointsClaimType;
 use App\Repository\OfferRepository;
 use App\Repository\PointsClaimRepository;
 use App\Repository\PointsClaimReviewEventRepository;
+use App\Repository\PointsPolicyDecisionRepository;
 use App\Security\PointsClaimVoter;
 use App\Service\ImpactEvidenceProviderInterface;
 use App\Service\PointsClaimService;
 use App\Service\PointsLedgerService;
+use App\Service\PointsPolicyRiskService;
 use App\Service\RequestRateLimiterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -37,6 +39,8 @@ class PointsClaimController extends AbstractController
         OfferRepository $offerRepository,
         PointsClaimService $pointsClaimService,
         PointsLedgerService $pointsLedgerService,
+        PointsPolicyDecisionRepository $pointsPolicyDecisionRepository,
+        PointsPolicyRiskService $pointsPolicyRiskService,
         RequestRateLimiterService $requestRateLimiterService,
         ImpactEvidenceProviderInterface $impactEvidenceProvider,
         EntityManagerInterface $entityManager,
@@ -134,6 +138,8 @@ class PointsClaimController extends AbstractController
 
                     if (PointsClaim::STATUS_APPROVED === $createdClaim->getStatus()) {
                         $this->addFlash('success', sprintf('Preuve validee automatiquement. +%d points.', (int) $createdClaim->getApprovedPoints()));
+                    } elseif (PointsClaim::REASON_CODE_COOLDOWN_ACTIVE === $createdClaim->getDecisionReasonCode()) {
+                        $this->addFlash('error', 'Delai de securite actif: vos nouvelles demandes de points sont temporairement bloquees.');
                     } else {
                         $this->addFlash('error', 'Preuves insuffisantes. La demande a ete rejetee.');
                     }
@@ -147,6 +153,28 @@ class PointsClaimController extends AbstractController
 
         $claims = $pointsClaimRepository->findLatestForCompany((int) $company->getId());
         $pointsSummary = $pointsLedgerService->getCompanySummary($company);
+        $policyPage = max(1, (int) $request->query->get('policy_page', 1));
+        $policyPerPage = 10;
+        $policyStatusFilter = strtoupper(trim((string) $request->query->get('policy_status', '')));
+        $policyReferenceFilter = strtoupper(trim((string) $request->query->get('policy_reference', '')));
+        $policyStatusFilter = '' !== $policyStatusFilter ? $policyStatusFilter : null;
+        $policyReferenceFilter = '' !== $policyReferenceFilter ? $policyReferenceFilter : null;
+
+        $policyDecisionTotal = $pointsPolicyDecisionRepository->countForCompanyFilters(
+            (int) $company->getId(),
+            $policyStatusFilter,
+            $policyReferenceFilter,
+        );
+        $policyTotalPages = max(1, (int) ceil($policyDecisionTotal / $policyPerPage));
+        $policyPage = min($policyPage, $policyTotalPages);
+        $policyDecisions = $pointsPolicyDecisionRepository->findPageForCompany(
+            (int) $company->getId(),
+            $policyPage,
+            $policyPerPage,
+            $policyStatusFilter,
+            $policyReferenceFilter,
+        );
+        $policyRiskSummary = $pointsPolicyRiskService->getCompanyRiskSummary($company);
 
         return $this->render('points_claim/index.html.twig', [
             'claims' => $claims,
@@ -154,6 +182,12 @@ class PointsClaimController extends AbstractController
             'form' => $form->createView(),
             'impactPointsBalance' => $pointsSummary['balance'],
             'companyPointsHistory' => $pointsSummary['history'],
+            'policyDecisions' => $policyDecisions,
+            'policyPage' => $policyPage,
+            'policyTotalPages' => $policyTotalPages,
+            'policyStatusFilter' => $policyStatusFilter,
+            'policyReferenceFilter' => $policyReferenceFilter,
+            'policyRiskSummary' => $policyRiskSummary,
         ]);
     }
 

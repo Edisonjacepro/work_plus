@@ -19,6 +19,7 @@ class PointsClaimService
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
         private readonly PointsPolicyService $pointsPolicyService,
         private readonly PointsPolicyAuditService $pointsPolicyAuditService,
+        private readonly PointsPolicyRiskService $pointsPolicyRiskService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -57,9 +58,6 @@ class PointsClaimService
             throw new \InvalidArgumentException('Company id is required.');
         }
 
-        $duplicateHash = $this->findDuplicateEvidenceHash($companyId, $evidenceDocuments);
-        $isEvidenceTooOld = $this->isEvidenceTooOld($evidenceIssuedAt);
-
         $claim = (new PointsClaim())
             ->setCompany($company)
             ->setOffer($offer)
@@ -83,6 +81,57 @@ class PointsClaimService
                 'suggestedPoints' => $suggestedPoints,
             ],
         );
+
+        $riskSummary = $this->pointsPolicyRiskService->getCompanyRiskSummary($company);
+        if (true === $riskSummary['cooldownActive']) {
+            $cooldownUntil = $riskSummary['cooldownUntil'];
+            $reasonText = 'Delai de securite actif apres plusieurs blocages automatiques.';
+
+            $this->pointsPolicyAuditService->recordCompanyDecision(
+                company: $company,
+                points: $suggestedPoints,
+                referenceType: PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
+                referenceId: $claim->getId(),
+                policyDecision: [
+                    'reasonCode' => 'COMPANY_COOLDOWN_ACTIVE',
+                    'reasonText' => $reasonText,
+                    'metadata' => [
+                        'ruleVersion' => PointsPolicyService::RULE_VERSION,
+                        'blocked24h' => $riskSummary['blocked24h'],
+                        'blocked7d' => $riskSummary['blocked7d'],
+                        'threshold24h' => $riskSummary['threshold24h'],
+                        'cooldownUntil' => $cooldownUntil?->format(DATE_ATOM),
+                    ],
+                ],
+                metadata: [
+                    'claimType' => $claimType,
+                    'claimIdempotencyKey' => $normalizedKey,
+                ],
+            );
+
+            $claim
+                ->setStatus(PointsClaim::STATUS_REJECTED)
+                ->setDecisionReasonCode(PointsClaim::REASON_CODE_COOLDOWN_ACTIVE)
+                ->setDecisionReason($reasonText)
+                ->setReviewedAt(new \DateTimeImmutable());
+            $this->createReviewEvent(
+                pointsClaim: $claim,
+                action: PointsClaimReviewEvent::ACTION_AUTO_REJECTED,
+                reasonCode: PointsClaim::REASON_CODE_COOLDOWN_ACTIVE,
+                reasonText: null,
+                metadata: [
+                    'blocked24h' => $riskSummary['blocked24h'],
+                    'blocked7d' => $riskSummary['blocked7d'],
+                    'threshold24h' => $riskSummary['threshold24h'],
+                    'cooldownUntil' => $cooldownUntil?->format(DATE_ATOM),
+                ],
+            );
+
+            return $claim;
+        }
+
+        $duplicateHash = $this->findDuplicateEvidenceHash($companyId, $evidenceDocuments);
+        $isEvidenceTooOld = $this->isEvidenceTooOld($evidenceIssuedAt);
 
         if (null !== $duplicateHash) {
             $claim

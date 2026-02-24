@@ -23,3 +23,6 @@ parameters:
         user_daily_points_cap: 40
         user_daily_credits_cap: 4
         user_monthly_points_cap: 400
+    app.points_policy.cooldown:
+        threshold_24h_blocks: 5
+        duration_minutes: 120

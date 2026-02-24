@@ -10,6 +10,7 @@ use App\Entity\User;
 use App\Repository\PointsClaimRepository;
 use App\Repository\PointsLedgerEntryRepository;
 use App\Service\PointsPolicyAuditService;
+use App\Service\PointsPolicyRiskService;
 use App\Service\PointsPolicyService;
 use App\Service\PointsClaimService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,8 +24,9 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
 
         $existing = (new PointsClaim())->setIdempotencyKey('claim-key-1');
 
@@ -37,6 +39,7 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
         $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $policyAuditService->expects(self::never())->method('recordCompanyDecision');
+        $policyRiskService->expects(self::never())->method('getCompanyRiskSummary');
 
         $result = $service->submit(
             new Company(),
@@ -54,8 +57,9 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 7);
@@ -73,6 +77,10 @@ class PointsClaimServiceTest extends TestCase
             ->method('evaluateCompanyCredit')
             ->with($company, 25, PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL)
             ->willReturn(null);
+        $policyRiskService->expects(self::once())
+            ->method('getCompanyRiskSummary')
+            ->with($company)
+            ->willReturn($this->cooldownInactiveSummary());
         $policyAuditService->expects(self::once())
             ->method('recordCompanyDecision')
             ->with(
@@ -155,8 +163,9 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 17);
@@ -179,6 +188,10 @@ class PointsClaimServiceTest extends TestCase
                 'reasonText' => 'Cap journalier de points entreprise depasse.',
                 'metadata' => ['cap' => 180, 'currentPoints' => 170, 'points' => 25],
             ]);
+        $policyRiskService->expects(self::once())
+            ->method('getCompanyRiskSummary')
+            ->with($company)
+            ->willReturn($this->cooldownInactiveSummary());
         $policyAuditService->expects(self::once())
             ->method('recordCompanyDecision')
             ->with(
@@ -229,14 +242,103 @@ class PointsClaimServiceTest extends TestCase
         self::assertNull($claim->getApprovedPoints());
     }
 
+    public function testSubmitRejectsWhenCooldownIsActive(): void
+    {
+        $claimRepository = $this->createMock(PointsClaimRepository::class);
+        $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
+        $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
+
+        $company = (new Company())->setName('Impact Co');
+        $this->setEntityId($company, 19);
+
+        $claimRepository->expects(self::once())
+            ->method('findOneByIdempotencyKey')
+            ->with('claim-key-cooldown')
+            ->willReturn(null);
+        $claimRepository->expects(self::never())->method('hasEvidenceHashForCompany');
+
+        $cooldownUntil = new \DateTimeImmutable('2026-02-24 14:00:00');
+        $policyRiskService->expects(self::once())
+            ->method('getCompanyRiskSummary')
+            ->with($company)
+            ->willReturn([
+                'blocked24h' => 7,
+                'blocked7d' => 11,
+                'cooldownActive' => true,
+                'cooldownUntil' => $cooldownUntil,
+                'threshold24h' => 5,
+                'durationMinutes' => 120,
+            ]);
+        $policyService->expects(self::never())->method('evaluateCompanyCredit');
+        $policyAuditService->expects(self::once())
+            ->method('recordCompanyDecision')
+            ->with(
+                $company,
+                25,
+                PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
+                null,
+                [
+                    'reasonCode' => 'COMPANY_COOLDOWN_ACTIVE',
+                    'reasonText' => 'Delai de securite actif apres plusieurs blocages automatiques.',
+                    'metadata' => [
+                        'ruleVersion' => PointsPolicyService::RULE_VERSION,
+                        'blocked24h' => 7,
+                        'blocked7d' => 11,
+                        'threshold24h' => 5,
+                        'cooldownUntil' => $cooldownUntil->format(DATE_ATOM),
+                    ],
+                ],
+                [
+                    'claimType' => PointsClaim::CLAIM_TYPE_TRAINING,
+                    'claimIdempotencyKey' => 'claim-key-cooldown',
+                ],
+            );
+
+        $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
+        $entityManager->expects(self::exactly(3))->method('persist');
+        $entityManager->expects(self::never())->method('flush');
+
+        $claim = $service->submit(
+            $company,
+            PointsClaim::CLAIM_TYPE_TRAINING,
+            [
+                ['valid' => true, 'fileHash' => 'c1'],
+                ['valid' => true, 'fileHash' => 'c2'],
+                ['valid' => true, 'fileHash' => 'c3'],
+                ['valid' => true, 'fileHash' => 'c4'],
+            ],
+            'claim-key-cooldown',
+            null,
+            new \DateTimeImmutable('today'),
+            [
+                'coherenceOk' => true,
+                'checks' => [
+                    'companyFound' => true,
+                    'companyActive' => true,
+                    'sectorMatch' => true,
+                    'cityMatch' => true,
+                ],
+            ],
+        );
+
+        self::assertSame(PointsClaim::STATUS_REJECTED, $claim->getStatus());
+        self::assertSame(PointsClaim::REASON_CODE_COOLDOWN_ACTIVE, $claim->getDecisionReasonCode());
+        self::assertNull($claim->getApprovedPoints());
+    }
+
     public function testSubmitRejectsWhenEvidenceScoreIsBelowAutomaticThreshold(): void
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 8);
@@ -254,6 +356,10 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
         $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $policyAuditService->expects(self::never())->method('recordCompanyDecision');
+        $policyRiskService->expects(self::once())
+            ->method('getCompanyRiskSummary')
+            ->with($company)
+            ->willReturn($this->cooldownInactiveSummary());
         $entityManager->expects(self::exactly(3))->method('persist');
 
         $claim = $service->submit(
@@ -284,8 +390,9 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 9);
@@ -295,6 +402,10 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
         $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $policyAuditService->expects(self::never())->method('recordCompanyDecision');
+        $policyRiskService->expects(self::once())
+            ->method('getCompanyRiskSummary')
+            ->with($company)
+            ->willReturn($this->cooldownInactiveSummary());
         $entityManager->expects(self::exactly(3))->method('persist');
 
         $claim = $service->submit(
@@ -319,8 +430,9 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 11);
@@ -334,6 +446,10 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
         $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $policyAuditService->expects(self::never())->method('recordCompanyDecision');
+        $policyRiskService->expects(self::once())
+            ->method('getCompanyRiskSummary')
+            ->with($company)
+            ->willReturn($this->cooldownInactiveSummary());
         $entityManager->expects(self::exactly(3))->method('persist');
 
         $claim = $service->submit(
@@ -358,8 +474,9 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
 
         $company = (new Company())->setName('Impact Co');
         $reviewer = (new User())->setEmail('reviewer@example.com')->setPassword('secret');
@@ -374,6 +491,7 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
         $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $policyAuditService->expects(self::never())->method('recordCompanyDecision');
+        $policyRiskService->expects(self::never())->method('getCompanyRiskSummary');
         $entityManager->expects(self::never())->method('persist');
 
         $this->expectException(\LogicException::class);
@@ -393,8 +511,9 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $entityManager);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
 
         $claim = (new PointsClaim())
             ->setStatus(PointsClaim::STATUS_SUBMITTED)
@@ -407,6 +526,7 @@ class PointsClaimServiceTest extends TestCase
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
         $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $policyAuditService->expects(self::never())->method('recordCompanyDecision');
+        $policyRiskService->expects(self::never())->method('getCompanyRiskSummary');
 
         $this->expectException(\LogicException::class);
         $service->reject($claim, $reviewer, PointsClaim::REASON_CODE_REJECTED_BY_REVIEWER, 'comment');
@@ -418,7 +538,25 @@ class PointsClaimServiceTest extends TestCase
         $reflection->setAccessible(true);
         $reflection->setValue($entity, $id);
     }
+
+    /**
+     * @return array{blocked24h: int, blocked7d: int, cooldownActive: bool, cooldownUntil: ?\DateTimeImmutable, threshold24h: int, durationMinutes: int}
+     */
+    private function cooldownInactiveSummary(): array
+    {
+        return [
+            'blocked24h' => 0,
+            'blocked7d' => 0,
+            'cooldownActive' => false,
+            'cooldownUntil' => null,
+            'threshold24h' => 5,
+            'durationMinutes' => 120,
+        ];
+    }
 }
+
+
+
 
 
 
