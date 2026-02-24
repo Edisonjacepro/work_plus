@@ -1,0 +1,6 @@
+parameters:
+    app.points_integrity.lock_ttl_seconds: 900
+    app.points_integrity.alert:
+        email_from: '%env(default::APP_POINTS_INTEGRITY_ALERT_FROM)%'
+        email_to: '%env(default::APP_POINTS_INTEGRITY_ALERT_TO)%'
+        webhook_url: '%env(default::APP_POINTS_INTEGRITY_ALERT_WEBHOOK_URL)%'
