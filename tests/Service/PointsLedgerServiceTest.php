@@ -9,6 +9,7 @@ use App\Entity\PointsLedgerEntry;
 use App\Entity\User;
 use App\Repository\PointsLedgerEntryRepository;
 use App\Service\PointsLedgerService;
+use App\Service\PointsPolicyAuditService;
 use App\Service\PointsPolicyService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -19,8 +20,9 @@ class PointsLedgerServiceTest extends TestCase
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
+        $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsLedgerService($repository, $policyService, $entityManager);
+        $service = new PointsLedgerService($repository, $policyService, $policyAuditService, $entityManager);
 
         $offer = $this->buildOfferWithId(10);
         $impactScore = (new ImpactScore())
@@ -38,6 +40,19 @@ class PointsLedgerServiceTest extends TestCase
             ->method('evaluateCompanyCredit')
             ->with($offer->getCompany(), 95, PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION)
             ->willReturn(null);
+        $policyAuditService->expects(self::once())
+            ->method('recordCompanyDecision')
+            ->with(
+                $offer->getCompany(),
+                95,
+                PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION,
+                10,
+                null,
+                [
+                    'offerId' => 10,
+                    'impactScore' => 80,
+                ],
+            );
 
         $entityManager->expects(self::once())
             ->method('persist')
@@ -62,8 +77,9 @@ class PointsLedgerServiceTest extends TestCase
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
+        $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsLedgerService($repository, $policyService, $entityManager);
+        $service = new PointsLedgerService($repository, $policyService, $policyAuditService, $entityManager);
 
         $offer = $this->buildOfferWithId(11);
         $impactScore = (new ImpactScore())
@@ -78,6 +94,7 @@ class PointsLedgerServiceTest extends TestCase
             ->with('offer_publication_company_11')
             ->willReturn(true);
         $policyService->expects(self::never())->method('evaluateCompanyCredit');
+        $policyAuditService->expects(self::never())->method('recordCompanyDecision');
 
         $entityManager->expects(self::never())->method('persist');
 
@@ -90,8 +107,9 @@ class PointsLedgerServiceTest extends TestCase
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
+        $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsLedgerService($repository, $policyService, $entityManager);
+        $service = new PointsLedgerService($repository, $policyService, $policyAuditService, $entityManager);
 
         $offer = $this->buildOfferWithId(12);
         $impactScore = (new ImpactScore())
@@ -113,6 +131,23 @@ class PointsLedgerServiceTest extends TestCase
                 'reasonText' => 'Quota depasse.',
                 'metadata' => [],
             ]);
+        $policyAuditService->expects(self::once())
+            ->method('recordCompanyDecision')
+            ->with(
+                $offer->getCompany(),
+                85,
+                PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION,
+                12,
+                [
+                    'reasonCode' => 'FREEMIUM_MONTHLY_OFFER_PUBLICATION_CAP',
+                    'reasonText' => 'Quota depasse.',
+                    'metadata' => [],
+                ],
+                [
+                    'offerId' => 12,
+                    'impactScore' => 70,
+                ],
+            );
 
         $entityManager->expects(self::never())->method('persist');
 
@@ -125,8 +160,9 @@ class PointsLedgerServiceTest extends TestCase
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
+        $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsLedgerService($repository, $policyService, $entityManager);
+        $service = new PointsLedgerService($repository, $policyService, $policyAuditService, $entityManager);
 
         $company = (new Company())->setName('Work Plus');
         $this->setEntityId($company, 5);
@@ -135,6 +171,7 @@ class PointsLedgerServiceTest extends TestCase
             ->method('getCompanyBalance')
             ->with(5)
             ->willReturn(123);
+        $policyAuditService->expects(self::never())->method('recordCompanyDecision');
 
         self::assertSame(123, $service->getCompanyBalance($company));
     }
@@ -143,8 +180,9 @@ class PointsLedgerServiceTest extends TestCase
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
+        $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
-        $service = new PointsLedgerService($repository, $policyService, $entityManager);
+        $service = new PointsLedgerService($repository, $policyService, $policyAuditService, $entityManager);
 
         $company = (new Company())->setName('Work Plus');
         $this->setEntityId($company, 7);
@@ -164,6 +202,7 @@ class PointsLedgerServiceTest extends TestCase
             ->method('findLatestForCompany')
             ->with(7, 20)
             ->willReturn([$historyEntry]);
+        $policyAuditService->expects(self::never())->method('recordCompanyDecision');
 
         $summary = $service->getCompanySummary($company);
 
@@ -198,3 +237,5 @@ class PointsLedgerServiceTest extends TestCase
         $reflection->setValue($entity, $id);
     }
 }
+
+

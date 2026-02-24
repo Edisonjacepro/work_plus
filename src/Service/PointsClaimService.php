@@ -18,6 +18,7 @@ class PointsClaimService
         private readonly PointsClaimRepository $pointsClaimRepository,
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
         private readonly PointsPolicyService $pointsPolicyService,
+        private readonly PointsPolicyAuditService $pointsPolicyAuditService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -116,6 +117,17 @@ class PointsClaimService
                 company: $company,
                 points: $suggestedPoints,
                 referenceType: PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
+            );
+            $this->pointsPolicyAuditService->recordCompanyDecision(
+                company: $company,
+                points: $suggestedPoints,
+                referenceType: PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
+                referenceId: $claim->getId(),
+                policyDecision: $policyDecision,
+                metadata: [
+                    'claimType' => $claimType,
+                    'claimIdempotencyKey' => $normalizedKey,
+                ],
             );
             if (is_array($policyDecision)) {
                 $claim
