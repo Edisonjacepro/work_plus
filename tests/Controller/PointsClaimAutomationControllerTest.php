@@ -6,6 +6,7 @@ use App\Entity\Company;
 use App\Entity\PointsClaim;
 use App\Entity\PointsClaimReviewEvent;
 use App\Entity\PointsLedgerEntry;
+use App\Entity\PointsPolicyDecision;
 use App\Entity\User;
 use App\Repository\PointsClaimRepository;
 use App\Repository\PointsClaimReviewEventRepository;
@@ -62,6 +63,16 @@ class PointsClaimAutomationControllerTest extends WebTestCase
         $events = $reviewEventRepository->findLatestForClaim((int) $claim->getId(), 10);
         self::assertCount(2, $events);
         self::assertSame(PointsClaimReviewEvent::ACTION_AUTO_APPROVED, $events[0]->getAction());
+
+        $policyDecisions = $entityManager->getRepository(PointsPolicyDecision::class)->findBy([
+            'company' => $savedCompany,
+            'referenceType' => PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
+        ]);
+        self::assertCount(1, $policyDecisions);
+        /** @var PointsPolicyDecision $policyDecision */
+        $policyDecision = $policyDecisions[0];
+        self::assertSame(PointsPolicyDecision::STATUS_ALLOW, $policyDecision->getDecisionStatus());
+        self::assertSame((int) $claim->getApprovedPoints(), $policyDecision->getPoints());
     }
 
     public function testSubmitPointsClaimAutoRejectsWithoutEnoughEvidence(): void

@@ -14,6 +14,7 @@ class PointsLedgerService
     public function __construct(
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
         private readonly PointsPolicyService $pointsPolicyService,
+        private readonly PointsPolicyAuditService $pointsPolicyAuditService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -42,6 +43,17 @@ class PointsLedgerService
             company: $company,
             points: $points,
             referenceType: PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION,
+        );
+        $this->pointsPolicyAuditService->recordCompanyDecision(
+            company: $company,
+            points: $points,
+            referenceType: PointsLedgerEntry::REFERENCE_OFFER_PUBLICATION,
+            referenceId: $offerId,
+            policyDecision: $policyDecision,
+            metadata: [
+                'offerId' => $offerId,
+                'impactScore' => $impactScore->getTotalScore(),
+            ],
         );
         if (is_array($policyDecision)) {
             return null;

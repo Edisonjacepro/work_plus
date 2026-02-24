@@ -19,6 +19,7 @@ class CandidatePointsService
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
         private readonly ImpactScoreRepository $impactScoreRepository,
         private readonly PointsPolicyService $pointsPolicyService,
+        private readonly PointsPolicyAuditService $pointsPolicyAuditService,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -53,6 +54,17 @@ class CandidatePointsService
             user: $candidate,
             points: $points,
             referenceType: PointsLedgerEntry::REFERENCE_APPLICATION_HIRED,
+        );
+        $this->pointsPolicyAuditService->recordUserDecision(
+            user: $candidate,
+            points: $points,
+            referenceType: PointsLedgerEntry::REFERENCE_APPLICATION_HIRED,
+            referenceId: $applicationId,
+            policyDecision: $policyDecision,
+            metadata: [
+                'applicationId' => $applicationId,
+                'offerId' => $offerId,
+            ],
         );
         if (is_array($policyDecision)) {
             return null;
