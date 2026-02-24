@@ -13,6 +13,7 @@ use App\Service\PointsPolicyAuditService;
 use App\Service\PointsPolicyRiskService;
 use App\Service\PointsPolicyService;
 use App\Service\PointsClaimService;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -100,8 +101,22 @@ class PointsClaimServiceTest extends TestCase
             ->with('points_claim_approval_claim-key-2')
             ->willReturn(false);
 
+        $connection = $this->createMock(Connection::class);
+        $connection->expects(self::once())
+            ->method('executeStatement')
+            ->with(
+                self::stringContains('ON CONFLICT DO NOTHING'),
+                self::callback(static function (array $params): bool {
+                    return 101 === $params['referenceId']
+                        && 'points_claim_approval_claim-key-2' === $params['idempotencyKey']
+                        && 25 === $params['points'];
+                }),
+                self::callback(static fn (mixed $types): bool => is_array($types)),
+            )
+            ->willReturn(1);
+
         $persisted = [];
-        $entityManager->expects(self::exactly(4))
+        $entityManager->expects(self::exactly(3))
             ->method('persist')
             ->willReturnCallback(function (mixed $entity) use (&$persisted): void {
                 $persisted[] = $entity;
@@ -119,6 +134,9 @@ class PointsClaimServiceTest extends TestCase
                     $reflection->setValue($entity, 101);
                 }
             });
+        $entityManager->expects(self::once())
+            ->method('getConnection')
+            ->willReturn($connection);
 
         $claim = $service->submit(
             $company,
@@ -148,13 +166,81 @@ class PointsClaimServiceTest extends TestCase
         self::assertSame(25, $claim->getApprovedPoints());
         self::assertSame(25, $claim->getRequestedPoints());
         self::assertSame(PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE, $claim->getDecisionReasonCode());
-        self::assertCount(4, $persisted);
+        self::assertCount(3, $persisted);
         self::assertInstanceOf(PointsClaimReviewEvent::class, $persisted[1]);
         self::assertInstanceOf(PointsClaimReviewEvent::class, $persisted[2]);
-        self::assertInstanceOf(PointsLedgerEntry::class, $persisted[3]);
-        /** @var PointsLedgerEntry $ledgerEntry */
-        $ledgerEntry = $persisted[3];
-        self::assertSame(101, $ledgerEntry->getReferenceId());
+    }
+
+    public function testSubmitAutoApproveDoesNotInsertLedgerWhenEntryAlreadyExists(): void
+    {
+        $claimRepository = $this->createMock(PointsClaimRepository::class);
+        $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
+        $policyService = $this->createMock(PointsPolicyService::class);
+        $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
+        $policyRiskService = $this->createMock(PointsPolicyRiskService::class);
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $service = new PointsClaimService($claimRepository, $ledgerRepository, $policyService, $policyAuditService, $policyRiskService, $entityManager);
+
+        $company = (new Company())->setName('Impact Co');
+        $this->setEntityId($company, 27);
+
+        $claimRepository->method('findOneByIdempotencyKey')->with('claim-key-2b')->willReturn(null);
+        $claimRepository->method('hasEvidenceHashForCompany')->willReturn(false);
+        $policyRiskService->method('getCompanyRiskSummary')->with($company)->willReturn($this->cooldownInactiveSummary());
+        $policyService->method('evaluateCompanyCredit')->willReturn(null);
+        $policyAuditService->expects(self::once())->method('recordCompanyDecision');
+
+        $ledgerRepository->expects(self::once())
+            ->method('existsByIdempotencyKey')
+            ->with('points_claim_approval_claim-key-2b')
+            ->willReturn(true);
+
+        $persisted = [];
+        $entityManager->expects(self::exactly(3))
+            ->method('persist')
+            ->willReturnCallback(function (mixed $entity) use (&$persisted): void {
+                $persisted[] = $entity;
+            });
+        $entityManager->expects(self::once())
+            ->method('flush')
+            ->willReturnCallback(function () use (&$persisted): void {
+                foreach ($persisted as $entity) {
+                    if (!$entity instanceof PointsClaim || null !== $entity->getId()) {
+                        continue;
+                    }
+
+                    $reflection = new \ReflectionProperty($entity::class, 'id');
+                    $reflection->setAccessible(true);
+                    $reflection->setValue($entity, 102);
+                }
+            });
+        $entityManager->expects(self::never())->method('getConnection');
+
+        $claim = $service->submit(
+            $company,
+            PointsClaim::CLAIM_TYPE_TRAINING,
+            [
+                ['valid' => true, 'fileHash' => 'h1'],
+                ['valid' => true, 'fileHash' => 'h2'],
+                ['valid' => true, 'fileHash' => 'h3'],
+                ['valid' => true, 'fileHash' => 'h4'],
+            ],
+            'claim-key-2b',
+            null,
+            new \DateTimeImmutable('today'),
+            [
+                'coherenceOk' => true,
+                'checks' => [
+                    'companyFound' => true,
+                    'companyActive' => true,
+                    'sectorMatch' => true,
+                    'cityMatch' => true,
+                ],
+            ],
+        );
+
+        self::assertSame(PointsClaim::STATUS_APPROVED, $claim->getStatus());
+        self::assertSame(25, $claim->getApprovedPoints());
     }
 
     public function testSubmitRejectsWhenAntiFraudCapIsReached(): void

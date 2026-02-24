@@ -10,6 +10,7 @@ use App\Entity\PointsLedgerEntry;
 use App\Entity\User;
 use App\Repository\PointsClaimRepository;
 use App\Repository\PointsLedgerEntryRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 
 class PointsClaimService
@@ -326,7 +327,7 @@ class PointsClaimService
         return $evidenceIssuedAt < $threshold;
     }
 
-    private function createApprovalLedgerEntry(PointsClaim $claim, int $points): ?PointsLedgerEntry
+    private function createApprovalLedgerEntry(PointsClaim $claim, int $points): void
     {
         $claimId = $claim->getId();
         if (null === $claimId) {
@@ -335,28 +336,71 @@ class PointsClaimService
 
         $idempotencyKey = sprintf('points_claim_approval_%s', $claim->getIdempotencyKey());
         if ($this->pointsLedgerEntryRepository->existsByIdempotencyKey($idempotencyKey)) {
-            return null;
+            return;
         }
 
-        $entry = (new PointsLedgerEntry())
-            ->setEntryType(PointsLedgerEntry::TYPE_CREDIT)
-            ->setPoints($points)
-            ->setReason('Points claim approved')
-            ->setReferenceType(PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL)
-            ->setReferenceId($claimId)
-            ->setRuleVersion($claim->getRuleVersion())
-            ->setIdempotencyKey($idempotencyKey)
-            ->setCompany($claim->getCompany())
-            ->setMetadata([
-                'claimType' => $claim->getClaimType(),
-                'evidenceScore' => $claim->getEvidenceScore(),
+        $metadata = [
+            'claimType' => $claim->getClaimType(),
+            'evidenceScore' => $claim->getEvidenceScore(),
+            'companyId' => $claim->getCompany()?->getId(),
+            'offerId' => $claim->getOffer()?->getId(),
+        ];
+
+        $connection = $this->entityManager->getConnection();
+        $connection->executeStatement(
+            <<<'SQL'
+                INSERT INTO points_ledger_entry (
+                    company_id,
+                    user_id,
+                    entry_type,
+                    points,
+                    reason,
+                    reference_type,
+                    reference_id,
+                    rule_version,
+                    idempotency_key,
+                    metadata,
+                    created_at
+                ) VALUES (
+                    :companyId,
+                    NULL,
+                    :entryType,
+                    :points,
+                    :reason,
+                    :referenceType,
+                    :referenceId,
+                    :ruleVersion,
+                    :idempotencyKey,
+                    :metadata,
+                    CURRENT_TIMESTAMP
+                )
+                ON CONFLICT DO NOTHING
+                SQL,
+            [
                 'companyId' => $claim->getCompany()?->getId(),
-                'offerId' => $claim->getOffer()?->getId(),
-            ]);
+                'entryType' => PointsLedgerEntry::TYPE_CREDIT,
+                'points' => $points,
+                'reason' => 'Points claim approved',
+                'referenceType' => PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
+                'referenceId' => $claimId,
+                'ruleVersion' => $claim->getRuleVersion(),
+                'idempotencyKey' => $idempotencyKey,
+                'metadata' => $metadata,
+            ],
+            [
+                'companyId' => Types::INTEGER,
+                'entryType' => Types::STRING,
+                'points' => Types::INTEGER,
+                'reason' => Types::STRING,
+                'referenceType' => Types::STRING,
+                'referenceId' => Types::INTEGER,
+                'ruleVersion' => Types::STRING,
+                'idempotencyKey' => Types::STRING,
+                'metadata' => Types::JSON,
+            ],
+        );
 
-        $this->entityManager->persist($entry);
-
-        return $entry;
+        return;
     }
 
     /**
