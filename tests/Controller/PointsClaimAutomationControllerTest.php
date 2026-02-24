@@ -159,6 +159,39 @@ class PointsClaimAutomationControllerTest extends WebTestCase
         self::assertCount(1, $ledgerEntries);
     }
 
+    public function testSubmitPointsClaimIsBlockedByCooldownBeforeFileMove(): void
+    {
+        $client = static::createClient();
+        $entityManager = $this->requireDatabaseOrSkip();
+
+        [$company, $user] = $this->createCompanyUser($entityManager, true);
+        $this->createBlockedPolicyDecisions($entityManager, $company, 5);
+        $entityManager->flush();
+
+        $uploadDir = (string) static::getContainer()->getParameter('app.points_claim_upload_dir');
+        $filesBefore = $this->listStoredEvidenceFiles($uploadDir);
+
+        $client->loginUser($user);
+        $token = $this->fetchPointsClaimToken($client);
+        $filePaths = $this->createTempEvidenceFiles(['cooldown-a', 'cooldown-b']);
+
+        $this->submitPointsClaim($client, $token, PointsClaim::CLAIM_TYPE_TRAINING, $filePaths, '2026-02-20');
+        self::assertResponseRedirects('/points-claims');
+
+        $entityManager->clear();
+        /** @var Company|null $savedCompany */
+        $savedCompany = $entityManager->getRepository(Company::class)->find($company->getId());
+        self::assertInstanceOf(Company::class, $savedCompany);
+
+        /** @var PointsClaimRepository $claimRepository */
+        $claimRepository = $entityManager->getRepository(PointsClaim::class);
+        $claims = $claimRepository->findLatestForCompany((int) $savedCompany->getId(), 10);
+        self::assertCount(0, $claims);
+
+        $filesAfter = $this->listStoredEvidenceFiles($uploadDir);
+        self::assertSame($filesBefore, $filesAfter);
+    }
+
     private function fetchPointsClaimToken(KernelBrowser $client): string
     {
         $crawler = $client->request('GET', '/points-claims');
@@ -252,6 +285,50 @@ class PointsClaimAutomationControllerTest extends WebTestCase
         $entityManager->persist($user);
 
         return [$company, $user];
+    }
+
+    private function createBlockedPolicyDecisions(EntityManagerInterface $entityManager, Company $company, int $count): void
+    {
+        for ($i = 0; $i < $count; ++$i) {
+            $decision = (new PointsPolicyDecision())
+                ->setCompany($company)
+                ->setDecisionStatus(PointsPolicyDecision::STATUS_BLOCK)
+                ->setReasonCode('TEST_BLOCK')
+                ->setReasonText('Test blocked decision')
+                ->setReferenceType(PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL)
+                ->setPoints(1)
+                ->setRuleVersion(PointsPolicyDecision::RULE_VERSION_V1)
+                ->setMetadata(['source' => 'test']);
+
+            $entityManager->persist($decision);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function listStoredEvidenceFiles(string $uploadDir): array
+    {
+        if (!is_dir($uploadDir)) {
+            return [];
+        }
+
+        $files = glob(rtrim($uploadDir, '/\\') . DIRECTORY_SEPARATOR . '*');
+        if (false === $files) {
+            return [];
+        }
+
+        $names = [];
+        foreach ($files as $file) {
+            if (!is_file($file)) {
+                continue;
+            }
+            $names[] = basename($file);
+        }
+
+        sort($names);
+
+        return $names;
     }
 
     private function requireDatabaseOrSkip(): EntityManagerInterface
