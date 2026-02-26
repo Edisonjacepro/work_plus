@@ -39,6 +39,9 @@ services:
             array $pointsPolicyCooldown: '%app.points_policy.cooldown%'
             array $pointsIntegrityAlertConfig: '%app.points_integrity.alert%'
             int $pointsIntegrityLockTtlSeconds: '%app.points_integrity.lock_ttl_seconds%'
+            array $opsHealthAlertConfig: '%app.ops_health.alert%'
+            int $opsHealthLockTtlSeconds: '%app.ops_health.lock_ttl_seconds%'
+            int $opsHealthSchedulerPointsSampleLimit: '%app.ops_health.scheduler.points_sample_limit%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name

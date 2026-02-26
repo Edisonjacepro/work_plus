@@ -1,0 +1,53 @@
+name: Ops Scheduled Check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ops-scheduled-check
+  cancel-in-progress: true
+
+jobs:
+  scheduled-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: prod
+      APP_DEBUG: 0
+      DATABASE_URL: ${{ secrets.OPS_DATABASE_URL }}
+      MAILER_DSN: ${{ secrets.OPS_MAILER_DSN || 'null://null' }}
+      APP_POINTS_INTEGRITY_ALERT_FROM: ${{ secrets.APP_POINTS_INTEGRITY_ALERT_FROM }}
+      APP_POINTS_INTEGRITY_ALERT_TO: ${{ secrets.APP_POINTS_INTEGRITY_ALERT_TO }}
+      APP_POINTS_INTEGRITY_ALERT_WEBHOOK_URL: ${{ secrets.APP_POINTS_INTEGRITY_ALERT_WEBHOOK_URL }}
+      APP_OPS_ALERT_FROM: ${{ secrets.APP_OPS_ALERT_FROM }}
+      APP_OPS_ALERT_TO: ${{ secrets.APP_OPS_ALERT_TO }}
+      APP_OPS_ALERT_WEBHOOK_URL: ${{ secrets.APP_OPS_ALERT_WEBHOOK_URL }}
+    steps:
+      - name: Validate required secrets
+        run: |
+          if [ -z "${{ secrets.OPS_DATABASE_URL }}" ]; then
+            echo "::warning::OPS_DATABASE_URL is not configured. Scheduled check skipped."
+            exit 0
+          fi
+
+      - name: Checkout repository
+        if: ${{ secrets.OPS_DATABASE_URL != '' }}
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        if: ${{ secrets.OPS_DATABASE_URL != '' }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        if: ${{ secrets.OPS_DATABASE_URL != '' }}
+        run: composer install --prefer-dist --no-progress --no-interaction --no-dev
+
+      - name: Run scheduled checks
+        if: ${{ secrets.OPS_DATABASE_URL != '' }}
+        run: php bin/console app:ops:scheduled-check --no-interaction
