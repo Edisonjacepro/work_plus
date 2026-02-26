@@ -12,6 +12,8 @@ Commands:
 - `php bin/console app:gdpr:anonymize --user-id=<id> --force`
 - `php bin/console app:gdpr:anonymize --company-id=<id> --dry-run`
 - `php bin/console app:gdpr:anonymize --company-id=<id> --force`
+- `php bin/console app:gdpr:retention --dry-run`
+- `php bin/console app:gdpr:retention --force`
 
 ## Export behavior
 
@@ -25,6 +27,16 @@ Commands:
 - `--force` executes SQL updates inside a DB transaction.
 - Logs only technical IDs and row counts (no PII in log messages).
 
+## Retention behavior
+
+- Command runs in `dry-run` by default.
+- `--force` executes purge operations:
+  - old submitted applications
+  - old rejected points claims
+  - old GDPR export files
+- Purges are transaction-safe for database rows.
+- File cleanup targets are derived from known storage directories.
+
 ## Safety notes
 
 - Always run dry-run first and archive result in ticket/audit notes.
@@ -34,3 +46,7 @@ Commands:
 ```bash
 php bin/console app:points:integrity:check --json --sample-limit=20
 ```
+
+## Scheduling recommendation
+
+Run retention weekly in dry-run mode and monthly in force mode after verification.
