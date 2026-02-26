@@ -27,6 +27,14 @@ composer run ci:test
 composer run ci
 ```
 
+Local env bootstrap (strict public mode):
+
+```bash
+cp .env.dist .env
+```
+
+Then keep real secrets in `.env.local` (untracked) or system env vars.
+
 ## Notes
 
 - The CI runs on PHP 8.4.
