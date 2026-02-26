@@ -1,4 +1,6 @@
 {
+    "name": "workplus/work-plus",
+    "description": "Work+ Symfony application",
     "type": "project",
     "license": "proprietary",
     "minimum-stability": "stable",
@@ -55,6 +57,18 @@
         "symfony/polyfill-php81": "*"
     },
     "scripts": {
+        "lint:yaml": "php bin/console lint:yaml config",
+        "lint:twig": "php bin/console lint:twig templates src",
+        "test": "php bin/phpunit",
+        "ci:lint": [
+            "@lint:yaml",
+            "@lint:twig"
+        ],
+        "ci:test": "@test",
+        "ci": [
+            "@ci:lint",
+            "@ci:test"
+        ],
         "auto-scripts": {
             "cache:clear": "symfony-cmd",
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
