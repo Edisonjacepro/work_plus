@@ -84,3 +84,23 @@ Recommended cron:
 ```cron
 */15 * * * * cd /var/www/work_plus && php bin/console app:ops:health-check --json >> var/log/ops-health.log 2>&1
 ```
+
+## 5) Scheduled ops check fails
+
+Symptoms:
+
+- `app:ops:scheduled-check` exit code is `1`.
+- GitHub workflow `Ops Scheduled Check` failed.
+
+Actions:
+
+1. Run locally with verbose output:
+   - `php bin/console app:ops:scheduled-check -v`
+2. Isolate failing sub-command:
+   - `php bin/console app:ops:health-check --json`
+   - `php bin/console app:points:integrity:check --json --sample-limit=20`
+3. Confirm alert channels:
+   - `APP_OPS_ALERT_*`
+   - `APP_POINTS_INTEGRITY_ALERT_*`
+4. Apply fix and rerun scheduled command.
+5. Keep incident open until both sub-commands return exit code `0`.

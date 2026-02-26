@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Service\OpsHealthAlertService;
 use App\Service\OpsHealthCheckService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -16,8 +17,10 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class OpsHealthCheckCommand extends Command
 {
-    public function __construct(private readonly OpsHealthCheckService $opsHealthCheckService)
-    {
+    public function __construct(
+        private readonly OpsHealthCheckService $opsHealthCheckService,
+        private readonly OpsHealthAlertService $opsHealthAlertService,
+    ) {
         parent::__construct();
     }
 
@@ -29,7 +32,14 @@ class OpsHealthCheckCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $report = $this->opsHealthCheckService->run();
+        try {
+            $report = $this->opsHealthCheckService->run();
+        } catch (\Throwable $exception) {
+            $this->opsHealthAlertService->notifyExecutionFailure($exception);
+            $io->error('Ops health check crashed unexpectedly.');
+
+            return Command::FAILURE;
+        }
 
         if (true === (bool) $input->getOption('json')) {
             $io->writeln(json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -45,6 +55,12 @@ class OpsHealthCheckCommand extends Command
             }
         }
 
-        return $report['hasFailures'] ? Command::FAILURE : Command::SUCCESS;
+        if (true === $report['hasFailures']) {
+            $this->opsHealthAlertService->notifyHealthFailure($report);
+
+            return Command::FAILURE;
+        }
+
+        return Command::SUCCESS;
     }
 }
