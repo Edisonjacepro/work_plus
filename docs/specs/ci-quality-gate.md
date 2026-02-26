@@ -15,6 +15,10 @@ Pipeline steps:
 3. `composer run ci:lint`
 4. `composer run ci:test`
 
+Additional security workflow:
+
+- `.github/workflows/secret-scan.yml` (Gitleaks on push/PR + daily schedule)
+
 ## Local commands
 
 ```bash
@@ -27,4 +31,6 @@ composer run ci
 
 - The CI runs on PHP 8.4.
 - Concurrency is enabled to cancel older runs on the same branch.
-- Configure branch protection in GitHub to require the `CI / quality` check before merge.
+- Configure branch protection in GitHub to require:
+  - `CI / quality`
+  - `Secret Scan / gitleaks`
