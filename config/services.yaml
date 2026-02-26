@@ -13,6 +13,7 @@ parameters:
     app.external_api_timeout_seconds: 2
     app.billing_provider: '%env(BILLING_PROVIDER)%'
     app.billing_webhook_tolerance_seconds: 300
+    app.gdpr_export_dir: '%kernel.project_dir%/var/exports/gdpr'
 
 services:
     # default configuration for services in *this* file
@@ -28,6 +29,7 @@ services:
             string $geoApiUrl: '%app.geo_api_url%'
             int $externalApiTimeoutSeconds: '%app.external_api_timeout_seconds%'
             string $billingProvider: '%app.billing_provider%'
+            string $gdprExportDir: '%app.gdpr_export_dir%'
             array $pointsPolicyCompanyPlanLimits: '%app.points_policy.company_plan_limits%'
             array $pointsPolicyUserLimits: '%app.points_policy.user_limits%'
             string $pointsPolicyDefaultCompanyPlan: '%app.points_policy.default_company_plan%'
