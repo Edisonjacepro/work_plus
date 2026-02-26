@@ -1,0 +1,7 @@
+parameters:
+    app.ops_health.lock_ttl_seconds: 900
+    app.ops_health.scheduler.points_sample_limit: 20
+    app.ops_health.alert:
+        email_from: '%env(default::APP_OPS_ALERT_FROM)%'
+        email_to: '%env(default::APP_OPS_ALERT_TO)%'
+        webhook_url: '%env(default::APP_OPS_ALERT_WEBHOOK_URL)%'
