@@ -30,6 +30,7 @@ services:
             int $externalApiTimeoutSeconds: '%app.external_api_timeout_seconds%'
             string $billingProvider: '%app.billing_provider%'
             string $gdprExportDir: '%app.gdpr_export_dir%'
+            array $gdprRetentionPolicy: '%app.gdpr_retention%'
             array $pointsPolicyCompanyPlanLimits: '%app.points_policy.company_plan_limits%'
             array $pointsPolicyUserLimits: '%app.points_policy.user_limits%'
             string $pointsPolicyDefaultCompanyPlan: '%app.points_policy.default_company_plan%'
