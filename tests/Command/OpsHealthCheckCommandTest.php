@@ -3,6 +3,7 @@
 namespace App\Tests\Command;
 
 use App\Command\OpsHealthCheckCommand;
+use App\Service\OpsHealthAlertService;
 use App\Service\OpsHealthCheckService;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
@@ -13,11 +14,14 @@ class OpsHealthCheckCommandTest extends TestCase
     public function testExecuteReturnsSuccessWhenNoFailure(): void
     {
         $service = $this->createMock(OpsHealthCheckService::class);
+        $alertService = $this->createMock(OpsHealthAlertService::class);
         $service->expects(self::once())
             ->method('run')
             ->willReturn($this->buildReport(false, 0, 1));
+        $alertService->expects(self::never())->method('notifyHealthFailure');
+        $alertService->expects(self::never())->method('notifyExecutionFailure');
 
-        $tester = new CommandTester(new OpsHealthCheckCommand($service));
+        $tester = new CommandTester(new OpsHealthCheckCommand($service, $alertService));
         $exitCode = $tester->execute([]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -27,11 +31,14 @@ class OpsHealthCheckCommandTest extends TestCase
     public function testExecuteReturnsFailureWhenFailureExists(): void
     {
         $service = $this->createMock(OpsHealthCheckService::class);
+        $alertService = $this->createMock(OpsHealthAlertService::class);
         $service->expects(self::once())
             ->method('run')
             ->willReturn($this->buildReport(true, 2, 0));
+        $alertService->expects(self::once())->method('notifyHealthFailure');
+        $alertService->expects(self::never())->method('notifyExecutionFailure');
 
-        $tester = new CommandTester(new OpsHealthCheckCommand($service));
+        $tester = new CommandTester(new OpsHealthCheckCommand($service, $alertService));
         $exitCode = $tester->execute([]);
 
         self::assertSame(Command::FAILURE, $exitCode);
@@ -40,11 +47,14 @@ class OpsHealthCheckCommandTest extends TestCase
     public function testExecuteOutputsJsonWhenRequested(): void
     {
         $service = $this->createMock(OpsHealthCheckService::class);
+        $alertService = $this->createMock(OpsHealthAlertService::class);
         $service->expects(self::once())
             ->method('run')
             ->willReturn($this->buildReport(false, 0, 0));
+        $alertService->expects(self::never())->method('notifyHealthFailure');
+        $alertService->expects(self::never())->method('notifyExecutionFailure');
 
-        $tester = new CommandTester(new OpsHealthCheckCommand($service));
+        $tester = new CommandTester(new OpsHealthCheckCommand($service, $alertService));
         $exitCode = $tester->execute(['--json' => true]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -52,6 +62,22 @@ class OpsHealthCheckCommandTest extends TestCase
         self::assertIsArray($decoded);
         self::assertArrayHasKey('checkedAt', $decoded);
         self::assertSame(0, $decoded['failuresCount']);
+    }
+
+    public function testExecuteNotifiesExecutionFailureOnCrash(): void
+    {
+        $service = $this->createMock(OpsHealthCheckService::class);
+        $alertService = $this->createMock(OpsHealthAlertService::class);
+
+        $service->expects(self::once())->method('run')->willThrowException(new \RuntimeException('db down'));
+        $alertService->expects(self::never())->method('notifyHealthFailure');
+        $alertService->expects(self::once())->method('notifyExecutionFailure');
+
+        $tester = new CommandTester(new OpsHealthCheckCommand($service, $alertService));
+        $exitCode = $tester->execute([]);
+
+        self::assertSame(Command::FAILURE, $exitCode);
+        self::assertStringContainsString('crashed unexpectedly', strtolower($tester->getDisplay()));
     }
 
     /**
