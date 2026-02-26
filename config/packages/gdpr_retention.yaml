@@ -1,0 +1,5 @@
+parameters:
+    app.gdpr_retention:
+        applications_submitted_days: 730
+        points_claims_rejected_days: 365
+        exports_files_days: 30
