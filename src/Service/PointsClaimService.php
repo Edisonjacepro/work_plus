@@ -15,6 +15,9 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class PointsClaimService
 {
+    private const AUTO_APPROVAL_THRESHOLD = 70;
+    private const EVIDENCE_MAX_AGE_MONTHS = 24;
+
     public function __construct(
         private readonly PointsClaimRepository $pointsClaimRepository,
         private readonly PointsLedgerEntryRepository $pointsLedgerEntryRepository,
@@ -52,7 +55,11 @@ class PointsClaimService
             throw new \InvalidArgumentException('At least one supporting document is required.');
         }
 
-        $evidenceScore = $this->computeEvidenceScore($evidenceDocuments, $externalChecks);
+        $normalizedExternalChecks = is_array($externalChecks) ? $externalChecks : [];
+        $coherence = $this->evaluateCoherence($evidenceDocuments, $normalizedExternalChecks, $evidenceIssuedAt);
+        $normalizedExternalChecks['coherence'] = $coherence;
+
+        $evidenceScore = $this->computeEvidenceScore($evidenceDocuments, $normalizedExternalChecks);
         $suggestedPoints = $this->computeSuggestedPoints($evidenceScore);
         $companyId = $company->getId();
         if (null === $companyId) {
@@ -65,7 +72,7 @@ class PointsClaimService
             ->setClaimType($claimType)
             ->setRequestedPoints($suggestedPoints)
             ->setEvidenceDocuments($evidenceDocuments)
-            ->setExternalChecks($externalChecks)
+            ->setExternalChecks($normalizedExternalChecks)
             ->setEvidenceScore($evidenceScore)
             ->setEvidenceIssuedAt($evidenceIssuedAt)
             ->setRuleVersion(PointsClaim::RULE_VERSION_V1)
@@ -86,7 +93,7 @@ class PointsClaimService
         $riskSummary = $this->pointsPolicyRiskService->getCompanyRiskSummary($company);
         if (true === $riskSummary['cooldownActive']) {
             $cooldownUntil = $riskSummary['cooldownUntil'];
-            $reasonText = 'Delai de securite actif apres plusieurs blocages automatiques.';
+            $reasonText = 'Pause de sécurité activée après plusieurs refus automatiques récents.';
 
             $this->pointsPolicyAuditService->recordCompanyDecision(
                 company: $company,
@@ -138,7 +145,7 @@ class PointsClaimService
             $claim
                 ->setStatus(PointsClaim::STATUS_REJECTED)
                 ->setDecisionReasonCode(PointsClaim::REASON_CODE_DUPLICATE_EVIDENCE_FILE)
-                ->setDecisionReason('Un justificatif identique a deja ete soumis.')
+                ->setDecisionReason('Un justificatif identique a déjà été soumis.')
                 ->setReviewedAt(new \DateTimeImmutable());
             $this->createReviewEvent(
                 pointsClaim: $claim,
@@ -162,7 +169,7 @@ class PointsClaimService
                     'evidenceIssuedAt' => $evidenceIssuedAt?->format('Y-m-d'),
                 ],
             );
-        } elseif ($evidenceScore >= 70) {
+        } elseif ($evidenceScore >= self::AUTO_APPROVAL_THRESHOLD) {
             $policyDecision = $this->pointsPolicyService->evaluateCompanyCredit(
                 company: $company,
                 points: $suggestedPoints,
@@ -208,17 +215,37 @@ class PointsClaimService
                 );
             }
         } else {
+            $missingScore = max(0, self::AUTO_APPROVAL_THRESHOLD - $evidenceScore);
+            $failedCriteria = is_array($coherence['failedRequired'] ?? null)
+                ? array_values(array_filter($coherence['failedRequired'], static fn (mixed $value): bool => is_string($value)))
+                : [];
+            $reason = sprintf(
+                'Validation automatique refusée : score %d/100 (seuil %d, manque %d).',
+                $evidenceScore,
+                self::AUTO_APPROVAL_THRESHOLD,
+                $missingScore,
+            );
+            if ([] !== $failedCriteria) {
+                $reason .= ' Cohérence non validée : ' . implode(', ', $failedCriteria) . '.';
+            }
+            $reason .= ' Ajoutez des justificatifs exploitables et des informations cohérentes.';
+
             $claim
                 ->setStatus(PointsClaim::STATUS_REJECTED)
                 ->setDecisionReasonCode(PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE)
-                ->setDecisionReason('Score de preuve insuffisant pour validation automatique.')
+                ->setDecisionReason($reason)
                 ->setReviewedAt(new \DateTimeImmutable());
             $this->createReviewEvent(
                 pointsClaim: $claim,
                 action: PointsClaimReviewEvent::ACTION_AUTO_REJECTED,
                 reasonCode: PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE,
                 reasonText: null,
-                metadata: null,
+                metadata: [
+                    'score' => $evidenceScore,
+                    'threshold' => self::AUTO_APPROVAL_THRESHOLD,
+                    'missing' => $missingScore,
+                    'failedRequiredCoherenceCriteria' => $failedCriteria,
+                ],
             );
         }
 
@@ -274,7 +301,8 @@ class PointsClaimService
         }
         $technicalScore = min(20, $validDocuments * 5);
 
-        $coherenceScore = true === ($externalChecks['coherenceOk'] ?? null) ? 20 : 0;
+        $coherenceData = is_array($externalChecks['coherence'] ?? null) ? $externalChecks['coherence'] : [];
+        $coherenceScore = true === ($coherenceData['isCoherent'] ?? ($externalChecks['coherenceOk'] ?? null)) ? 20 : 0;
 
         $apiScore = 0;
         $checks = is_array($externalChecks['checks'] ?? null) ? $externalChecks['checks'] : [];
@@ -322,9 +350,95 @@ class PointsClaimService
             return false;
         }
 
-        $threshold = (new \DateTimeImmutable('today'))->modify('-24 months');
+        $threshold = (new \DateTimeImmutable('today'))->modify('-' . self::EVIDENCE_MAX_AGE_MONTHS . ' months');
 
         return $evidenceIssuedAt < $threshold;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $evidenceDocuments
+     * @param array<string, mixed> $externalChecks
+     * @return array{
+     *   isCoherent: bool,
+     *   criteria: array<string, bool>,
+     *   failedRequired: list<string>,
+     *   requiredCriteria: list<string>
+     * }
+     */
+    private function evaluateCoherence(
+        array $evidenceDocuments,
+        array $externalChecks,
+        ?\DateTimeImmutable $evidenceIssuedAt,
+    ): array {
+        $checks = is_array($externalChecks['checks'] ?? null) ? $externalChecks['checks'] : [];
+        $legacyCoherenceOk = true === ($externalChecks['coherenceOk'] ?? null);
+
+        $hasCompanyWebsite = $checks['hasCompanyWebsite'] ?? null;
+        $hasCompanyCity = $checks['hasCompanyCity'] ?? null;
+        $hasCompanySector = $checks['hasCompanySector'] ?? null;
+        $offerLinked = $checks['offerLinked'] ?? null;
+        $sameCompanyOffer = $checks['sameCompanyOffer'] ?? null;
+
+        $profileComplete = is_bool($hasCompanyWebsite) && is_bool($hasCompanyCity) && is_bool($hasCompanySector)
+            ? ($hasCompanyWebsite && $hasCompanyCity && $hasCompanySector)
+            : $legacyCoherenceOk;
+        $offerConsistency = is_bool($offerLinked)
+            ? (false === $offerLinked || true === $sameCompanyOffer)
+            : $legacyCoherenceOk;
+        $evidenceDateValid = $this->isEvidenceDateValid($evidenceIssuedAt);
+        $hasUsableEvidenceDocument = $this->hasUsableEvidenceDocument($evidenceDocuments);
+
+        $criteria = [
+            'profile_complete' => $profileComplete,
+            'offer_consistency' => $offerConsistency,
+            'evidence_date_valid' => $evidenceDateValid,
+            'has_usable_document' => $hasUsableEvidenceDocument,
+        ];
+        $requiredCriteria = array_keys($criteria);
+        $failedRequired = array_values(array_filter(
+            $requiredCriteria,
+            static fn (string $key): bool => true !== $criteria[$key],
+        ));
+        $isCoherent = [] === $failedRequired;
+
+        return [
+            'isCoherent' => $isCoherent,
+            'criteria' => $criteria,
+            'failedRequired' => $failedRequired,
+            'requiredCriteria' => $requiredCriteria,
+        ];
+    }
+
+    private function isEvidenceDateValid(?\DateTimeImmutable $evidenceIssuedAt): bool
+    {
+        if (!$evidenceIssuedAt instanceof \DateTimeImmutable) {
+            return false;
+        }
+
+        $today = new \DateTimeImmutable('today');
+        if ($evidenceIssuedAt > $today) {
+            return false;
+        }
+
+        return !$this->isEvidenceTooOld($evidenceIssuedAt);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $evidenceDocuments
+     */
+    private function hasUsableEvidenceDocument(array $evidenceDocuments): bool
+    {
+        foreach ($evidenceDocuments as $document) {
+            $isValid = true === ($document['valid'] ?? false);
+            $fileHash = trim((string) ($document['fileHash'] ?? ''));
+            $size = (int) ($document['size'] ?? 0);
+
+            if ($isValid && ('' !== $fileHash || $size > 0)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function createApprovalLedgerEntry(PointsClaim $claim, int $points): void

@@ -1,10 +1,10 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Candidatures recues{% endblock %}
+{% block title %}Candidatures reçues{% endblock %}
 
 {% block body %}
-    <h1>Candidatures recues</h1>
-    <p><small>{{ totalItems }} resultat(s)</small></p>
+    <h1>Candidatures reçues</h1>
+    <p><small>{{ totalItems }} résultat(s)</small></p>
 
     {% if applications is empty %}
         <p>Aucune candidature pour le moment.</p>
@@ -29,7 +29,7 @@
                         <td>{{ application.createdAt ? application.createdAt|date('d/m/Y H:i') : '-' }}</td>
                         <td>
                             <span class="status-badge status-{{ application.status|lower }}">
-                                {{ application.status == 'HIRED' ? 'Embauche' : 'Soumise' }}
+                                {{ application.status == 'HIRED' ? 'Embauché' : 'Soumise' }}
                             </span>
                         </td>
                         <td><a href="{{ path('application_show', {id: application.id}) }}">Consulter</a></td>
@@ -41,7 +41,7 @@
         {% if totalPages > 1 %}
             <nav aria-label="Pagination candidatures recruteur">
                 {% if currentPage > 1 %}
-                    <a href="{{ path('application_recruiter_index', {page: currentPage - 1}) }}">Page precedente</a>
+                    <a href="{{ path('application_recruiter_index', {page: currentPage - 1}) }}">Page précédente</a>
                 {% endif %}
                 <span>Page {{ currentPage }} / {{ totalPages }}</span>
                 {% if currentPage < totalPages %}

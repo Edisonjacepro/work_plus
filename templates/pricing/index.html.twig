@@ -7,13 +7,13 @@
         <h1>Tarifs Work+</h1>
         <p>
             Trois formules simples pour les recruteurs.
-            Le module de paiement est pret pour Stripe via cles API, avec mode fake actif par defaut.
+            Le module de paiement est prêt pour Stripe via clés API, avec mode fake actif par défaut.
         </p>
         {% if isRecruiterWithCompany %}
             <p>
-                <strong>Formule actuelle:</strong> {{ activePlanCode }}
+                <strong>Formule actuelle :</strong> {{ activePlanCode }}
                 {% if activePlanExpiresAt %}
-                    (valide jusqu au {{ activePlanExpiresAt|date('d/m/Y H:i') }})
+                    (valide jusqu'au {{ activePlanExpiresAt|date('d/m/Y H:i') }})
                 {% endif %}
             </p>
         {% endif %}
@@ -46,9 +46,9 @@
                         <span class="status-badge status-draft">Plan gratuit</span>
                     {% endif %}
                 {% elseif app.user %}
-                    <p>Ce module est reserve aux comptes recruteur.</p>
+                    <p>Ce module est réservé aux comptes recruteur.</p>
                 {% else %}
-                    <a class="btn" href="{{ path('app_register_company') }}">Creer un compte recruteur</a>
+                    <a class="btn" href="{{ path('app_register_company') }}">Créer un compte recruteur</a>
                 {% endif %}
             </article>
         {% endfor %}

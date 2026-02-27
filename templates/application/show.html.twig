@@ -20,10 +20,10 @@
 
     {% if is_granted('APPLICATION_HIRE', application) and application.status != 'HIRED' %}
         <section>
-            <h2>Decision recruteur</h2>
+            <h2>Décision recruteur</h2>
             <form method="post" action="{{ path('application_hire', {id: application.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('hire_application_' ~ application.id) }}">
-                <button class="btn" type="submit">Marquer comme embauche</button>
+                <button class="btn" type="submit">Marquer comme embauché</button>
             </form>
         </section>
     {% endif %}
@@ -37,9 +37,9 @@
     </section>
 
     <section>
-        <h2>Echanges</h2>
+        <h2>Échanges</h2>
         {% if application.messages is empty %}
-            <p>Aucune reponse pour le moment.</p>
+            <p>Aucune réponse pour le moment.</p>
         {% else %}
             {% for message in application.messages %}
                 <article class="card" style="margin-bottom: 1rem;">
@@ -50,7 +50,7 @@
                             {% elseif message.authorType == 'CANDIDATE' %}
                                 Candidat
                             {% else %}
-                                Systeme
+                                Système
                             {% endif %}
                         </strong>
                         - {{ message.createdAt ? message.createdAt|date('d/m/Y H:i') : '-' }}
@@ -72,7 +72,7 @@
     </section>
 
     <section>
-        <h2>Repondre</h2>
+        <h2>Répondre</h2>
         {{ form_start(messageForm) }}
             {{ form_row(messageForm.body) }}
             {{ form_row(messageForm.attachments) }}

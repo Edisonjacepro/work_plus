@@ -105,6 +105,7 @@ class PointsClaimAutomationControllerTest extends WebTestCase
         self::assertSame(PointsClaim::STATUS_REJECTED, $claim->getStatus());
         self::assertNull($claim->getApprovedPoints());
         self::assertSame(PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE, $claim->getDecisionReasonCode());
+        self::assertStringContainsString('seuil 70', (string) $claim->getDecisionReason());
 
         $ledgerEntries = $entityManager->getRepository(PointsLedgerEntry::class)->findBy([
             'company' => $savedCompany,

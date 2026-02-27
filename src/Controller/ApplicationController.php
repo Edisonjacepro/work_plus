@@ -32,7 +32,7 @@ class ApplicationController extends AbstractController
     {
         $user = $this->getUser();
         if (!$user instanceof User || !$user->isCompany()) {
-            $this->addFlash('error', 'Acces refuse : vous devez etre connecte en tant que recruteur.');
+            $this->addFlash('error', 'Accès refusé : vous devez être connecté en tant que recruteur.');
             return $this->redirectToRoute('home');
         }
 
@@ -64,7 +64,7 @@ class ApplicationController extends AbstractController
     {
         $user = $this->getUser();
         if (!$user instanceof User || !$user->isPerson()) {
-            $this->addFlash('error', 'Acces refuse : vous devez etre connecte en tant que candidat.');
+            $this->addFlash('error', 'Accès refusé : vous devez être connecté en tant que candidat.');
             return $this->redirectToRoute('home');
         }
 
@@ -135,7 +135,7 @@ class ApplicationController extends AbstractController
         $form->handleRequest($request);
 
         if (!$form->isSubmitted() || !$form->isValid()) {
-            $this->addFlash('error', 'Le formulaire de reponse est invalide.');
+            $this->addFlash('error', 'Le formulaire de réponse est invalide.');
 
             return $this->render('application/show.html.twig', [
                 'application' => $application,
@@ -167,7 +167,7 @@ class ApplicationController extends AbstractController
             try {
                 $file->move($applicationAttachmentDir, $storedName);
             } catch (FileException) {
-                $this->addFlash('error', 'Impossible de televerser une piece jointe.');
+                $this->addFlash('error', 'Impossible de téléverser une pièce jointe.');
                 return $this->redirectToRoute('application_show', ['id' => $application->getId()]);
             }
 
@@ -191,10 +191,10 @@ class ApplicationController extends AbstractController
         try {
             $notifier->sendNewMessageNotification($message);
         } catch (\Throwable) {
-            $this->addFlash('error', 'Le message est enregistre, mais la notification email a echoue.');
+            $this->addFlash('error', 'Le message est enregistré, mais la notification email a échoué.');
         }
 
-        $this->addFlash('success', 'Votre message a ete envoye.');
+        $this->addFlash('success', 'Votre message a été envoyé.');
 
         return $this->redirectToRoute('application_show', ['id' => $application->getId()]);
     }
@@ -214,7 +214,7 @@ class ApplicationController extends AbstractController
         }
 
         $response = new BinaryFileResponse($fullPath);
-        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $attachment->getOriginalName() ?? 'piece-jointe');
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $attachment->getOriginalName() ?? 'pièce-jointe');
 
         return $response;
     }
@@ -237,7 +237,7 @@ class ApplicationController extends AbstractController
         }
 
         if (Application::STATUS_HIRED === $application->getStatus()) {
-            $this->addFlash('info', 'Cette candidature est deja marquee comme embauchee.');
+            $this->addFlash('info', 'Cette candidature est déjà marquée comme embauchée.');
             return $this->redirectToRoute('application_show', ['id' => $application->getId()]);
         }
 
@@ -256,9 +256,9 @@ class ApplicationController extends AbstractController
         $entityManager->flush();
 
         if (null !== $entry) {
-            $this->addFlash('success', sprintf('Candidat marque comme embauche. +%d points candidat.', $entry->getPoints()));
+            $this->addFlash('success', sprintf('Candidat marqué comme embauché. +%d points candidat.', $entry->getPoints()));
         } else {
-            $this->addFlash('success', 'Candidat marque comme embauche.');
+            $this->addFlash('success', 'Candidat marqué comme embauché.');
         }
 
         return $this->redirectToRoute('application_show', ['id' => $application->getId()]);

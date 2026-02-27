@@ -41,12 +41,12 @@ class CompanyController extends AbstractController
     {
         $user = $this->getUser();
         if (!$user instanceof User || !$user->isCompany()) {
-            $this->addFlash('error', 'Acces refuse : vous devez etre connecte en tant que recruteur.');
+            $this->addFlash('error', 'Accès refusé : vous devez être connecté en tant que recruteur.');
             return $this->redirectToRoute('company_index');
         }
 
         if ($user->getCompany() instanceof Company) {
-            $this->addFlash('error', 'Vous etes deja rattache a une entreprise.');
+            $this->addFlash('error', 'Vous êtes déjà rattaché à une entreprise.');
             return $this->redirectToRoute('company_show', ['id' => $user->getCompany()?->getId()]);
         }
 
@@ -59,15 +59,15 @@ class CompanyController extends AbstractController
             $entityManager->persist($company);
             $entityManager->flush();
 
-            $this->addFlash('success', 'Entreprise creee avec succes.');
+            $this->addFlash('success', 'Entreprise créée avec succès.');
             return $this->redirectToRoute('company_show', ['id' => $company->getId()]);
         }
 
         return $this->render('company/form.html.twig', [
             'company' => $company,
             'form' => $form,
-            'pageTitle' => 'Creer une entreprise',
-            'submitLabel' => 'Creer',
+            'pageTitle' => 'Créer une entreprise',
+            'submitLabel' => 'Créer',
         ]);
     }
 
@@ -88,7 +88,7 @@ class CompanyController extends AbstractController
     public function edit(Request $request, Company $company, EntityManagerInterface $entityManager): Response
     {
         if (!$this->isGranted(CompanyVoter::EDIT, $company)) {
-            $this->addFlash('error', 'Acces refuse : vous ne pouvez pas modifier cette entreprise.');
+            $this->addFlash('error', 'Accès refusé : vous ne pouvez pas modifier cette entreprise.');
             return $this->redirectToRoute('company_show', ['id' => $company->getId()]);
         }
 
@@ -97,7 +97,7 @@ class CompanyController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $entityManager->flush();
-            $this->addFlash('success', 'Entreprise mise a jour avec succes.');
+            $this->addFlash('success', 'Entreprise mise à jour avec succès.');
             return $this->redirectToRoute('company_show', ['id' => $company->getId()]);
         }
 
@@ -114,7 +114,7 @@ class CompanyController extends AbstractController
     public function delete(Request $request, Company $company, EntityManagerInterface $entityManager): Response
     {
         if (!$this->isGranted(CompanyVoter::DELETE, $company)) {
-            $this->addFlash('error', 'Acces refuse : vous ne pouvez pas supprimer cette entreprise.');
+            $this->addFlash('error', 'Accès refusé : vous ne pouvez pas supprimer cette entreprise.');
             return $this->redirectToRoute('company_show', ['id' => $company->getId()]);
         }
 
@@ -126,7 +126,7 @@ class CompanyController extends AbstractController
         $hasOffers = $company->getOffers()->count() > 0;
         $usersCount = $company->getUsers()->count();
         if ($hasOffers || $usersCount > 1) {
-            $this->addFlash('error', 'Suppression impossible : entreprise liee a des offres ou a plusieurs utilisateurs.');
+            $this->addFlash('error', 'Suppression impossible : entreprise liée à des offres ou à plusieurs utilisateurs.');
             return $this->redirectToRoute('company_show', ['id' => $company->getId()]);
         }
 
@@ -137,7 +137,7 @@ class CompanyController extends AbstractController
         $entityManager->remove($company);
         $entityManager->flush();
 
-        $this->addFlash('success', 'Entreprise supprimee avec succes.');
+        $this->addFlash('success', 'Entreprise supprimée avec succès.');
         return $this->redirectToRoute('company_index');
     }
 }

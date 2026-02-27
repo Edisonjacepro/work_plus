@@ -4,57 +4,58 @@
 
 {% block body %}
     <section>
-        <h1>Comprendre le systeme de points Work+</h1>
+        <h1>Comprendre le système de points Work+</h1>
         <p>
-            Les points valorisent les actions a impact positif sur la plateforme.
-            Ils sont traces dans un ledger (journal) pour rester auditables et recalculables.
+            Les points valorisent les actions à impact positif sur la plateforme.
+            Ils sont tracés dans un ledger (journal) pour rester auditables et recalculables.
         </p>
     </section>
 
     <section>
         <h2>Pour les candidats</h2>
         <p>
-            Vous gagnez des points quand une candidature est marquee comme embauchee.
-            Le calcul actuel suit cette formule:
+            Vous gagnez des points quand une candidature est marquée comme embauchée.
+            Le calcul actuel suit cette formule :
         </p>
         <ul>
-            <li>Base fixe: 5 points.</li>
-            <li>Bonus impact: 10% du score d impact de l offre, plafonne a 10 points.</li>
-            <li>Total candidat par embauche: entre 5 et 15 points.</li>
+            <li>Base fixe : 5 points.</li>
+            <li>Bonus impact : 10% du score d'impact de l'offre, plafonné à 10 points.</li>
+            <li>Total candidat par embauche : entre 5 et 15 points.</li>
         </ul>
         <p>
-            Votre total de points definit aussi votre niveau:
+            Votre total de points définit aussi votre niveau :
             Bronze (&lt;100), Silver (>=100), Gold (>=300), Impact Leader (>=700).
         </p>
     </section>
 
     <section>
         <h2>Pour les entreprises</h2>
-        <h3>1. Publication d offres</h3>
+        <h3>1. Publication d'offres</h3>
         <p>
-            La publication d une offre passe par une moderation automatique.
-            Aucun point entreprise n est attribue a la simple publication.
+            La publication d'une offre passe par une modération automatique.
+            Aucun point entreprise n'est attribué à la simple publication.
         </p>
 
-        <h3>2. Envoi de preuves d impact</h3>
+        <h3>2. Envoi de preuves d'impact</h3>
         <p>
-            Vous pouvez envoyer des justificatifs (formation, benevolat, certification, autre) pour demander des points.
+            Vous pouvez envoyer des justificatifs (formation, bénévolat, certification, autre) pour demander des points.
         </p>
         <ul>
-            <li>Un score de preuve est calcule de 0 a 100.</li>
-            <li>Points proposes: environ 25% du score, avec un minimum de 5 et un maximum de 30.</li>
-            <li>Decision auto: approuve si score >= 70, rejet sinon.</li>
-            <li>Protection anti-fraude: refus des doublons de fichiers et preuves trop anciennes (&gt; 24 mois).</li>
+            <li>Un score de preuve est calculé de 0 à 100.</li>
+            <li>Points proposés : environ 25% du score, avec un minimum de 5 et un maximum de 30.</li>
+            <li>Décision auto : approuvé si score >= 70, rejet sinon.</li>
+            <li>Une preuve cohérente exige : profil entreprise complet, date valide (<= 24 mois), au moins un justificatif exploitable, et offre cohérente si elle est renseignée.</li>
+            <li>Protection anti-fraude : refus des doublons de fichiers et preuves trop anciennes (&gt; 24 mois).</li>
         </ul>
     </section>
 
     <section>
-        <h2>Transparence et fiabilite</h2>
+        <h2>Transparence et fiabilité</h2>
         <ul>
-            <li>Chaque attribution cree une ecriture dans le ledger (append-only).</li>
-            <li>Chaque ecriture contient un type, une reference, un motif et une version de regle.</li>
-            <li>Le solde est calcule a partir de l historique, il reste donc recalculable.</li>
-            <li>Les actions sont idempotentes: une meme operation ne credite pas deux fois.</li>
+            <li>Chaque attribution crée une écriture dans le ledger (append-only).</li>
+            <li>Chaque écriture contient un type, une référence, un motif et une version de règle.</li>
+            <li>Le solde est calculé à partir de l'historique, il reste donc recalculable.</li>
+            <li>Les actions sont idempotentes : une même opération ne crédite pas deux fois.</li>
         </ul>
     </section>
 {% endblock %}

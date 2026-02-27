@@ -369,7 +369,7 @@ class PointsClaimServiceTest extends TestCase
                 null,
                 [
                     'reasonCode' => 'COMPANY_COOLDOWN_ACTIVE',
-                    'reasonText' => 'Delai de securite actif apres plusieurs blocages automatiques.',
+                    'reasonText' => 'Pause de sécurité activée après plusieurs refus automatiques récents.',
                     'metadata' => [
                         'ruleVersion' => PointsPolicyService::RULE_VERSION,
                         'blocked24h' => 7,
@@ -467,6 +467,13 @@ class PointsClaimServiceTest extends TestCase
         self::assertSame(45, $claim->getEvidenceScore());
         self::assertSame(11, $claim->getRequestedPoints());
         self::assertSame(PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE, $claim->getDecisionReasonCode());
+        self::assertStringContainsString('score 45/100', (string) $claim->getDecisionReason());
+        self::assertStringContainsString('seuil 70', (string) $claim->getDecisionReason());
+        self::assertTrue(is_array($claim->getExternalChecks()));
+        $coherence = $claim->getExternalChecks()['coherence'] ?? null;
+        self::assertTrue(is_array($coherence));
+        self::assertFalse((bool) ($coherence['isCoherent'] ?? true));
+        self::assertContains('profile_complete', $coherence['failedRequired'] ?? []);
         self::assertNull($claim->getApprovedPoints());
     }
 

@@ -40,13 +40,13 @@ class RegistrationController extends AbstractController
             $hasBlockingError = false;
 
             if ($companyRepository->findOneBy(['name' => $companyName]) instanceof Company) {
-                $message = 'Le nom de cette entreprise est deja utilise.';
+                $message = 'Le nom de cette entreprise est déjà utilisé.';
                 $form->get('companyName')->addError(new FormError($message));
                 $hasBlockingError = true;
             }
 
             if ($userRepository->existsByEmailInsensitive($email)) {
-                $message = 'Cet email est deja utilise.';
+                $message = 'Cet email est déjà utilisé.';
                 $form->get('email')->addError(new FormError($message));
                 $hasBlockingError = true;
             }
@@ -72,10 +72,10 @@ class RegistrationController extends AbstractController
                     $entityManager->persist($user);
                     $entityManager->flush();
 
-                    $this->addFlash('success', 'Compte entreprise cree. Veuillez vous connecter.');
+                    $this->addFlash('success', 'Compte entreprise créé. Veuillez vous connecter.');
                     return $this->redirectToRoute('app_login');
                 } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
-                    $form->addError(new FormError('Des donnees existent deja. Verifiez le nom de l\'entreprise et l\'email.'));
+                    $form->addError(new FormError('Des données existent déjà. Vérifiez le nom de l\'entreprise et l\'email.'));
                 }
             }
         }
@@ -122,11 +122,11 @@ class RegistrationController extends AbstractController
                 $entityManager->persist($user);
                 $entityManager->flush();
 
-                $this->addFlash('success', 'Compte candidat cree. Veuillez vous connecter.');
+                $this->addFlash('success', 'Compte candidat créé. Veuillez vous connecter.');
                 return $this->redirectToRoute('app_login');
             } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
-                $form->addError(new FormError('Cet email est deja utilise.'));
-                $this->addFlash('error', 'Cet email est deja utilise.');
+                $form->addError(new FormError('Cet email est déjà utilisé.'));
+                $this->addFlash('error', 'Cet email est déjà utilisé.');
             }
         }
 

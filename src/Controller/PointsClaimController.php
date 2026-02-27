@@ -15,6 +15,7 @@ use App\Service\ImpactEvidenceProviderInterface;
 use App\Service\PointsClaimService;
 use App\Service\PointsLedgerService;
 use App\Service\PointsPolicyRiskService;
+use App\Service\PointsReasonLabelService;
 use App\Service\RequestRateLimiterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -41,6 +42,7 @@ class PointsClaimController extends AbstractController
         PointsLedgerService $pointsLedgerService,
         PointsPolicyDecisionRepository $pointsPolicyDecisionRepository,
         PointsPolicyRiskService $pointsPolicyRiskService,
+        PointsReasonLabelService $pointsReasonLabelService,
         RequestRateLimiterService $requestRateLimiterService,
         ImpactEvidenceProviderInterface $impactEvidenceProvider,
         EntityManagerInterface $entityManager,
@@ -53,7 +55,7 @@ class PointsClaimController extends AbstractController
         }
 
         if (!$user->isCompany() || !$user->getCompany() instanceof Company) {
-            $this->addFlash('error', 'Acces refuse : vous devez etre connecte avec un compte entreprise.');
+            $this->addFlash('error', 'Accès refusé : vous devez être connecté avec un compte entreprise.');
             return $this->redirectToRoute('home');
         }
 
@@ -76,9 +78,9 @@ class PointsClaimController extends AbstractController
                 $riskSummary = $pointsPolicyRiskService->getCompanyRiskSummary($company);
                 if (true === $riskSummary['cooldownActive']) {
                     $cooldownUntil = $riskSummary['cooldownUntil'];
-                    $message = 'Delai de securite actif: vos nouvelles demandes de points sont temporairement bloquees.';
+                    $message = 'Pause de sécurité activée : après plusieurs refus automatiques, vos nouvelles demandes de points sont temporairement bloquées.';
                     if ($cooldownUntil instanceof \DateTimeImmutable) {
-                        $message .= ' Fin estimee: ' . $cooldownUntil->format('d/m/Y H:i') . '.';
+                        $message .= ' Vous pourrez réessayer à partir du ' . $cooldownUntil->format('d/m/Y H:i') . '.';
                     }
 
                     $this->addFlash('error', $message);
@@ -96,7 +98,7 @@ class PointsClaimController extends AbstractController
                 $idempotencyKey = $this->buildIdempotencyKey($company, $claim, $fingerprints);
                 $existingClaim = $pointsClaimRepository->findOneByIdempotencyKey($idempotencyKey);
                 if ($existingClaim instanceof PointsClaim) {
-                    $this->addFlash('info', 'Une preuve equivalente existe deja. Redirection vers la demande existante.');
+                    $this->addFlash('info', 'Une preuve équivalente existe déjà. Redirection vers la demande existante.');
                     return $this->redirectToRoute('points_claim_show', ['id' => $existingClaim->getId()]);
                 }
 
@@ -119,7 +121,7 @@ class PointsClaimController extends AbstractController
                     try {
                         $uploadedFile->move($pointsClaimUploadDir, $storedName);
                     } catch (FileException) {
-                        $this->addFlash('error', 'Impossible de televerser une piece justificative.');
+                        $this->addFlash('error', 'Impossible de téléverser une pièce justificative.');
                         return $this->redirectToRoute('points_claim_index');
                     }
 
@@ -149,11 +151,11 @@ class PointsClaimController extends AbstractController
                     $entityManager->flush();
 
                     if (PointsClaim::STATUS_APPROVED === $createdClaim->getStatus()) {
-                        $this->addFlash('success', sprintf('Preuve validee automatiquement. +%d points.', (int) $createdClaim->getApprovedPoints()));
+                        $this->addFlash('success', sprintf('Preuve validée automatiquement. +%d points.', (int) $createdClaim->getApprovedPoints()));
                     } elseif (PointsClaim::REASON_CODE_COOLDOWN_ACTIVE === $createdClaim->getDecisionReasonCode()) {
-                        $this->addFlash('error', 'Delai de securite actif: vos nouvelles demandes de points sont temporairement bloquees.');
+                        $this->addFlash('error', 'Pause de sécurité activée : après plusieurs refus automatiques, vos nouvelles demandes de points sont temporairement bloquées.');
                     } else {
-                        $this->addFlash('error', 'Preuves insuffisantes. La demande a ete rejetee.');
+                        $this->addFlash('error', (string) ($createdClaim->getDecisionReason() ?: 'Preuves insuffisantes. La demande a été rejetée.'));
                     }
 
                     return $this->redirectToRoute('points_claim_show', ['id' => $createdClaim->getId()]);
@@ -200,6 +202,7 @@ class PointsClaimController extends AbstractController
             'policyStatusFilter' => $policyStatusFilter,
             'policyReferenceFilter' => $policyReferenceFilter,
             'policyRiskSummary' => $policyRiskSummary,
+            'pointsReasonLabelService' => $pointsReasonLabelService,
         ]);
     }
 
@@ -210,7 +213,11 @@ class PointsClaimController extends AbstractController
     }
 
     #[Route('/{id}', name: 'points_claim_show', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function show(PointsClaim $claim, PointsClaimReviewEventRepository $reviewEventRepository): Response
+    public function show(
+        PointsClaim $claim,
+        PointsClaimReviewEventRepository $reviewEventRepository,
+        PointsReasonLabelService $pointsReasonLabelService,
+    ): Response
     {
         $this->denyAccessUnlessGranted(PointsClaimVoter::VIEW, $claim);
 
@@ -221,6 +228,7 @@ class PointsClaimController extends AbstractController
         return $this->render('points_claim/show.html.twig', [
             'claim' => $claim,
             'events' => $events,
+            'pointsReasonLabelService' => $pointsReasonLabelService,
         ]);
     }
 
@@ -284,7 +292,7 @@ class PointsClaimController extends AbstractController
             'offerLinked' => $offer instanceof \App\Entity\Offer,
         ];
 
-        $sameCompanyOffer = true;
+        $sameCompanyOffer = false;
         $sources = [];
 
         if ($offer instanceof \App\Entity\Offer) {
@@ -306,8 +314,13 @@ class PointsClaimController extends AbstractController
             }
         }
 
+        $profileComplete = true === ($checks['hasCompanyWebsite'] ?? null)
+            && true === ($checks['hasCompanyCity'] ?? null)
+            && true === ($checks['hasCompanySector'] ?? null);
+        $offerConsistency = false === ($checks['offerLinked'] ?? false) || true === ($checks['sameCompanyOffer'] ?? false);
+
         return [
-            'coherenceOk' => $sameCompanyOffer,
+            'coherenceOk' => $profileComplete && $offerConsistency,
             'checks' => $checks,
             'sources' => $sources,
         ];
