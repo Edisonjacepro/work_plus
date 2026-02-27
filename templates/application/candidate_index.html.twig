@@ -8,28 +8,28 @@
     <section>
         <h2>Informations</h2>
         <p><strong>Email :</strong> {{ candidate.email }}</p>
-        <p><strong>Prenom :</strong> {{ candidate.firstName ?: '-' }}</p>
+        <p><strong>Prénom :</strong> {{ candidate.firstName ?: '-' }}</p>
         <p><strong>Nom :</strong> {{ candidate.lastName ?: '-' }}</p>
         <p><strong>Type de compte :</strong> {{ candidate.accountType }}</p>
     </section>
 
     <section>
         <h2>Points impact</h2>
-        <p><strong>Total cumule :</strong> {{ candidatePointsBalance }}</p>
+        <p><strong>Total cumulé :</strong> {{ candidatePointsBalance }}</p>
         <p><strong>Niveau :</strong> {{ candidatePointsLevel }}</p>
 
-        <h3>Detail des points</h3>
+        <h3>Détail des points</h3>
         {% if candidatePointsHistory is empty %}
-            <p>Aucun evenement de points pour le moment.</p>
+            <p>Aucun événement de points pour le moment.</p>
         {% else %}
             <table>
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Reference</th>
+                        <th>Référence</th>
                         <th>Motif</th>
                         <th>Points</th>
-                        <th>Details</th>
+                        <th>Détails</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -55,9 +55,9 @@
 
     <section>
         <h2>Mes candidatures</h2>
-        <p><small>{{ totalItems }} resultat(s)</small></p>
+        <p><small>{{ totalItems }} résultat(s)</small></p>
         {% if applications is empty %}
-            <p>Vous n'avez pas encore postule.</p>
+            <p>Vous n'avez pas encore postulé.</p>
         {% else %}
             <table>
                 <thead>
@@ -77,7 +77,7 @@
                             <td>{{ application.createdAt ? application.createdAt|date('d/m/Y H:i') : '-' }}</td>
                             <td>
                                 <span class="status-badge status-{{ application.status|lower }}">
-                                    {{ application.status == 'HIRED' ? 'Embauche' : 'Soumise' }}
+                                    {{ application.status == 'HIRED' ? 'Embauché' : 'Soumise' }}
                                 </span>
                             </td>
                             <td><a href="{{ path('application_show', {id: application.id}) }}">Consulter</a></td>
@@ -89,7 +89,7 @@
             {% if totalPages > 1 %}
                 <nav aria-label="Pagination candidatures candidat">
                     {% if currentPage > 1 %}
-                        <a href="{{ path('application_candidate_index', {page: currentPage - 1}) }}">Page precedente</a>
+                        <a href="{{ path('application_candidate_index', {page: currentPage - 1}) }}">Page précédente</a>
                     {% endif %}
                     <span>Page {{ currentPage }} / {{ totalPages }}</span>
                     {% if currentPage < totalPages %}

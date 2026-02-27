@@ -13,6 +13,7 @@ use App\Security\OfferVoter;
 use App\Service\ImpactScoreService;
 use App\Service\ModerationService;
 use App\Service\OfferImpactScoreResolver;
+use App\Service\PointsReasonLabelService;
 use App\Service\RequestRateLimiterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -46,11 +47,15 @@ class OfferController extends AbstractController
 
     #[Route('/recruiter', name: 'recruiter_offer_index', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
-    public function recruiterIndex(Request $request, OfferRepository $offerRepository): Response
+    public function recruiterIndex(
+        Request $request,
+        OfferRepository $offerRepository,
+        PointsReasonLabelService $pointsReasonLabelService,
+    ): Response
     {
         $user = $this->getUser();
         if (!$user instanceof User || !$user->isCompany()) {
-            $this->addFlash('error', 'Acces refuse : vous devez etre un recruteur.');
+            $this->addFlash('error', 'Accès refusé : vous devez être un recruteur.');
             return $this->redirectToRoute('offer_index');
         }
 
@@ -67,6 +72,7 @@ class OfferController extends AbstractController
                 'currentPage' => $currentPage,
                 'totalPages' => $totalPages,
                 'totalItems' => $total,
+                'pointsReasonLabelService' => $pointsReasonLabelService,
             ]);
         }
 
@@ -79,6 +85,7 @@ class OfferController extends AbstractController
             'currentPage' => $currentPage,
             'totalPages' => $totalPages,
             'totalItems' => $total,
+            'pointsReasonLabelService' => $pointsReasonLabelService,
         ]);
     }
 
@@ -88,7 +95,7 @@ class OfferController extends AbstractController
     {
         $user = $this->getUser();
         if (!$user instanceof User || !$user->isCompany() || !$user->getCompany()) {
-            $this->addFlash('error', 'Veuillez vous connecter avec un compte entreprise pour creer une offre.');
+            $this->addFlash('error', 'Veuillez vous connecter avec un compte entreprise pour créer une offre.');
             return $this->redirectToRoute('home');
         }
 
@@ -112,10 +119,14 @@ class OfferController extends AbstractController
     }
 
     #[Route('/{id}', name: 'offer_show', methods: ['GET'])]
-    public function show(Offer $offer, OfferImpactScoreResolver $offerImpactScoreResolver): Response
+    public function show(
+        Offer $offer,
+        OfferImpactScoreResolver $offerImpactScoreResolver,
+        PointsReasonLabelService $pointsReasonLabelService,
+    ): Response
     {
         if (!$this->isGranted(OfferVoter::VIEW, $offer)) {
-            $this->addFlash('error', 'Acces refuse : offre non disponible.');
+            $this->addFlash('error', 'Accès refusé : offre non disponible.');
             return $this->redirectToRoute('offer_index');
         }
 
@@ -154,6 +165,7 @@ class OfferController extends AbstractController
             'canApply' => $canApply,
             'impactScore' => $resolvedScore['impactScore'],
             'isImpactScorePreview' => $resolvedScore['isPreview'],
+            'pointsReasonLabelService' => $pointsReasonLabelService,
         ]);
     }
 
@@ -164,16 +176,17 @@ class OfferController extends AbstractController
         EntityManagerInterface $entityManager,
         UserRepository $userRepository,
         string $cvUploadDir,
+        PointsReasonLabelService $pointsReasonLabelService,
     ): Response
     {
         if (!$this->isGranted(OfferVoter::VIEW, $offer)) {
-            $this->addFlash('error', 'Acces refuse : offre non disponible.');
+            $this->addFlash('error', 'Accès refusé : offre non disponible.');
             return $this->redirectToRoute('offer_index');
         }
 
         $user = $this->getUser();
         if ($user instanceof User && !$user->isPerson()) {
-            $this->addFlash('error', 'Seul un candidat peut postuler a cette offre.');
+            $this->addFlash('error', "Seul un candidat peut postuler à cette offre.");
             return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
         }
 
@@ -198,13 +211,14 @@ class OfferController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             if (!$user instanceof User && $userRepository->existsByEmailInsensitive((string) $application->getEmail())) {
-                $form->get('email')->addError(new FormError('Cet email correspond deja a un compte existant. Veuillez vous connecter pour postuler.'));
-                $this->addFlash('error', 'Cet email correspond deja a un compte existant. Veuillez vous connecter pour postuler.');
+                $form->get('email')->addError(new FormError('Cet email correspond déjà à un compte existant. Veuillez vous connecter pour postuler.'));
+                $this->addFlash('error', 'Cet email correspond déjà à un compte existant. Veuillez vous connecter pour postuler.');
 
                 return $this->render('offer/show.html.twig', [
                     'offer' => $offer,
                     'applicationForm' => $form->createView(),
                     'canApply' => true,
+                    'pointsReasonLabelService' => $pointsReasonLabelService,
                 ]);
             }
 
@@ -219,7 +233,7 @@ class OfferController extends AbstractController
                     $cvFile->move($cvUploadDir, $fileName);
                     $application->setCvFilePath('uploads/cv/' . $fileName);
                 } catch (FileException) {
-                    $this->addFlash('error', 'Impossible de televerser votre CV. Veuillez reessayer.');
+                    $this->addFlash('error', 'Impossible de téléverser votre CV. Veuillez réessayer.');
                     return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
                 }
             }
@@ -227,7 +241,7 @@ class OfferController extends AbstractController
             $entityManager->persist($application);
             $entityManager->flush();
 
-            $this->addFlash('success', 'Votre candidature a ete envoyee.');
+            $this->addFlash('success', 'Votre candidature a été envoyée.');
 
             return $this->redirectToRoute('offer_show', ['id' => $offer->getId()]);
         }
@@ -238,6 +252,7 @@ class OfferController extends AbstractController
             'offer' => $offer,
             'applicationForm' => $form->createView(),
             'canApply' => true,
+            'pointsReasonLabelService' => $pointsReasonLabelService,
         ]);
     }
 
@@ -246,7 +261,7 @@ class OfferController extends AbstractController
     public function edit(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
         if (!$this->isGranted(OfferVoter::EDIT, $offer)) {
-            $this->addFlash('error', 'Acces refuse : cette offre ne vous appartient pas.');
+            $this->addFlash('error', 'Accès refusé : cette offre ne vous appartient pas.');
             return $this->redirectToRoute('offer_index');
         }
 
@@ -270,7 +285,7 @@ class OfferController extends AbstractController
     public function delete(Request $request, Offer $offer, EntityManagerInterface $entityManager): Response
     {
         if (!$this->isGranted(OfferVoter::DELETE, $offer)) {
-            $this->addFlash('error', 'Acces refuse : cette offre ne vous appartient pas.');
+            $this->addFlash('error', 'Accès refusé : cette offre ne vous appartient pas.');
             return $this->redirectToRoute('offer_index');
         }
 
@@ -291,6 +306,7 @@ class OfferController extends AbstractController
         ImpactScoreService $impactScoreService,
         ModerationService $moderationService,
         RequestRateLimiterService $requestRateLimiterService,
+        PointsReasonLabelService $pointsReasonLabelService,
     ): Response
     {
         if ($this->isCsrfTokenValid('publish_offer_' . $offer->getId(), (string) $request->request->get('_token'))) {
@@ -311,12 +327,14 @@ class OfferController extends AbstractController
             if ($eligibility->eligible) {
                 $impactScoreService->computeAndStore($offer);
                 $entityManager->flush();
-                $this->addFlash('success', 'Publication validee automatiquement.');
+                $this->addFlash('success', 'Publication validée automatiquement.');
             } else {
                 $entityManager->flush();
+                $reasonCode = $offer->getModerationReasonCode();
                 $this->addFlash('error', sprintf(
-                    'Publication refusee automatiquement (%s).',
-                    $offer->getModerationReasonCode() ?? 'raison_non_definie',
+                    'Publication refusée automatiquement : %s%s.',
+                    $pointsReasonLabelService->offerModerationReasonLabel($reasonCode),
+                    is_string($reasonCode) && '' !== trim($reasonCode) ? sprintf(' (%s)', $reasonCode) : '',
                 ));
             }
         }

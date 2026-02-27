@@ -4,13 +4,13 @@
 
 {% block body %}
     <h1>Entreprises</h1>
-    <p><small>{{ totalItems }} resultat(s)</small></p>
+    <p><small>{{ totalItems }} résultat(s)</small></p>
 
     {% if app.user and app.user.isCompany %}
         {% if app.user.company %}
             <p><a href="{{ path('company_show', {id: app.user.company.id}) }}">Voir ma fiche entreprise</a></p>
         {% else %}
-            <p><a href="{{ path('company_new') }}">Creer mon entreprise</a></p>
+            <p><a href="{{ path('company_new') }}">Créer mon entreprise</a></p>
         {% endif %}
     {% endif %}
 
@@ -31,7 +31,7 @@
         {% if totalPages > 1 %}
             <nav aria-label="Pagination entreprises">
                 {% if currentPage > 1 %}
-                    <a href="{{ path('company_index', {page: currentPage - 1}) }}">Page precedente</a>
+                    <a href="{{ path('company_index', {page: currentPage - 1}) }}">Page précédente</a>
                 {% endif %}
                 <span>Page {{ currentPage }} / {{ totalPages }}</span>
                 {% if currentPage < totalPages %}

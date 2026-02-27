@@ -23,32 +23,32 @@
         <p>
             <strong>Formule recruteur :</strong> {{ company.recruiterPlanCode }}
             {% if company.recruiterPlanExpiresAt %}
-                (jusqu au {{ company.recruiterPlanExpiresAt|date('d/m/Y H:i') }})
+                (jusqu'au {{ company.recruiterPlanExpiresAt|date('d/m/Y H:i') }})
             {% endif %}
         </p>
-        <p><strong>Date creation :</strong> {{ company.createdAt ? company.createdAt|date('d/m/Y H:i') : '-' }}</p>
-        <p><strong>Derniere mise a jour :</strong> {{ company.updatedAt ? company.updatedAt|date('d/m/Y H:i') : '-' }}</p>
+        <p><strong>Date création :</strong> {{ company.createdAt ? company.createdAt|date('d/m/Y H:i') : '-' }}</p>
+        <p><strong>Dernière mise à jour :</strong> {{ company.updatedAt ? company.updatedAt|date('d/m/Y H:i') : '-' }}</p>
     </section>
 
     <section>
         <h2>Points impact entreprise</h2>
-        <p><strong>Total cumule :</strong> {{ impactPointsBalance }}</p>
+        <p><strong>Total cumulé :</strong> {{ impactPointsBalance }}</p>
         {% if app.user and app.user.isCompany and app.user.company and app.user.company.id == company.id %}
             <p><a href="{{ path('points_claim_index') }}">Ouvrir mon espace impact</a></p>
         {% endif %}
 
-        <h3>Detail des points</h3>
+        <h3>Détail des points</h3>
         {% if companyPointsHistory is empty %}
-            <p>Aucun evenement de points pour le moment.</p>
+            <p>Aucun événement de points pour le moment.</p>
         {% else %}
             <table>
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Reference</th>
+                        <th>Référence</th>
                         <th>Motif</th>
                         <th>Points</th>
-                        <th>Details</th>
+                        <th>Détails</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -77,7 +77,7 @@
             <a href="{{ path('company_edit', {id: company.id}) }}">Modifier la fiche</a>
             |
         {% endif %}
-        <a href="{{ path('company_index') }}">Retour a la liste</a>
+        <a href="{{ path('company_index') }}">Retour à la liste</a>
     </p>
 
     {% if is_granted('DELETE', company) %}

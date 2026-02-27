@@ -8,18 +8,30 @@
     <p><strong>Entreprise :</strong> {{ offer.company.name }}</p>
     <p>
         <strong>Date de publication :</strong>
-        {{ offer.publishedAt ? offer.publishedAt|date('d/m/Y H:i') : 'Non publiee' }}
+        {{ offer.publishedAt ? offer.publishedAt|date('d/m/Y H:i') : 'Non publiée' }}
     </p>
     {% if app.user and offer.author and app.user.id == offer.author.id %}
-        <p><strong>Statut :</strong> {{ offer.status }}</p>
-        <p><strong>Moderation :</strong> {{ offer.moderationStatus }}</p>
-        <p><strong>Code moderation :</strong> {{ offer.moderationReasonCode ?: '-' }}</p>
-        <p><strong>Motif moderation :</strong> {{ offer.moderationReason ?: '-' }}</p>
+        <p>
+            <strong>Statut :</strong>
+            {{ pointsReasonLabelService.offerStatusLabel(offer.status) }}
+            {% if offer.status %} ({{ offer.status }}){% endif %}
+        </p>
+        <p>
+            <strong>Modération :</strong>
+            {{ pointsReasonLabelService.offerModerationStatusLabel(offer.moderationStatus) }}
+            {% if offer.moderationStatus %} ({{ offer.moderationStatus }}){% endif %}
+        </p>
+        <p>
+            <strong>Motif modération (code) :</strong>
+            {{ pointsReasonLabelService.offerModerationReasonLabel(offer.moderationReasonCode) }}
+            {% if offer.moderationReasonCode %} ({{ offer.moderationReasonCode }}){% endif %}
+        </p>
+        <p><strong>Motif modération :</strong> {{ offer.moderationReason ?: '-' }}</p>
     {% endif %}
 
     <p>{{ offer.description }}</p>
 
-    <p><strong>Categories d'impact :</strong>
+    <p><strong>Catégories d'impact :</strong>
         {% if offer.impactCategories is not empty %}
             {{ offer.impactCategories|join(', ') }}
         {% else %}
@@ -31,17 +43,17 @@
         <h2>Score d impact automatique</h2>
         {% if impactScore is defined and impactScore %}
             <p>
-                <strong>{{ isImpactScorePreview ? 'Score previsionnel' : 'Score valide' }} :</strong> {{ impactScore.totalScore }}/100
+                <strong>{{ isImpactScorePreview ? 'Score prévisionnel' : 'Score validé' }} :</strong> {{ impactScore.totalScore }}/100
                 (confiance {{ (impactScore.confidence * 100)|round }}%)
             </p>
             <p>
-                Societe: {{ impactScore.societyScore }}/100 |
-                Biodiversite: {{ impactScore.biodiversityScore }}/100 |
+                Société : {{ impactScore.societyScore }}/100 |
+                Biodiversité : {{ impactScore.biodiversityScore }}/100 |
                 GES: {{ impactScore.ghgScore }}/100
             </p>
-            <p><small>Regle: {{ impactScore.ruleVersion }}</small></p>
+            <p><small>Règle : {{ impactScore.ruleVersion }}</small></p>
         {% else %}
-            <p><em>Le score sera calcule automatiquement a la publication.</em></p>
+            <p><em>Le score sera calculé automatiquement à la publication.</em></p>
         {% endif %}
     </section>
 
@@ -50,12 +62,12 @@
             <a href="{{ path('offer_edit', {id: offer.id}) }}">Modifier</a>
             |
         {% endif %}
-        <a href="{{ path('offer_index') }}">Retour a la liste</a>
+            <a href="{{ path('offer_index') }}">Retour à la liste</a>
     </p>
 
     {% if is_granted('ROLE_ADMIN') %}
         <section>
-            <h2>Visibilite</h2>
+            <h2>Visibilité</h2>
             <form method="post" action="{{ path('offer_toggle_visibility', {id: offer.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('toggle_visibility_' ~ offer.id) }}">
                 <button class="btn" type="submit">
@@ -67,10 +79,10 @@
 
     {% if offer.status == 'DRAFT' and is_granted('PUBLISH', offer) %}
         <section>
-            <h2>Soumettre a la moderation automatique</h2>
+            <h2>Soumettre à la modération automatique</h2>
             <form method="post" action="{{ path('offer_publish', {id: offer.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('publish_offer_' ~ offer.id) }}">
-                <button class="btn" type="submit">Lancer la moderation</button>
+                <button class="btn" type="submit">Lancer la modération</button>
             </form>
         </section>
     {% endif %}
@@ -87,7 +99,7 @@
 
     {% if canApply and applicationForm %}
         <section>
-            <h2>Postuler a cette offre</h2>
+            <h2>Postuler à cette offre</h2>
             {{ form_start(applicationForm) }}
                 {{ form_row(applicationForm.email) }}
                 {{ form_row(applicationForm.firstName) }}

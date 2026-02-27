@@ -27,7 +27,7 @@ class BillingController extends AbstractController
     ): Response {
         $user = $this->getUser();
         if (!$user instanceof User || !$user->isCompany() || !$user->getCompany() instanceof Company) {
-            $this->addFlash('error', 'Acces refuse : paiement reserve aux recruteurs avec entreprise.');
+            $this->addFlash('error', 'Accès refusé : paiement réservé aux recruteurs avec entreprise.');
             return $this->redirectToRoute('pricing_index');
         }
 
@@ -46,11 +46,11 @@ class BillingController extends AbstractController
             }
 
             if ($result->alreadyProcessed) {
-                $this->addFlash('info', 'Paiement deja initialise pour cette periode. Aucun doublon cree.');
+                $this->addFlash('info', 'Paiement déjà initialisé pour cette période. Aucun doublon créé.');
             } elseif ($result->immediateSuccess) {
-                $this->addFlash('success', sprintf('Formule %s activee. Paiement confirme.', $result->payment->getPlanCode()));
+                $this->addFlash('success', sprintf('Formule %s activée. Paiement confirmé.', $result->payment->getPlanCode()));
             } else {
-                $this->addFlash('info', 'Paiement initialise. En attente de confirmation du fournisseur.');
+                $this->addFlash('info', 'Paiement initialisé. En attente de confirmation du fournisseur.');
             }
         } catch (\InvalidArgumentException $exception) {
             $this->addFlash('error', $exception->getMessage());
@@ -90,4 +90,3 @@ class BillingController extends AbstractController
         }
     }
 }
-

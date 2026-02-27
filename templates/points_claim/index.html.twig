@@ -7,17 +7,17 @@
 
     <section>
         <h2>Points acquis</h2>
-        <p><strong>Total cumule:</strong> {{ impactPointsBalance }}</p>
+        <p><strong>Total cumulé :</strong> {{ impactPointsBalance }}</p>
 
         <h3>Historique des points</h3>
         {% if companyPointsHistory is empty %}
-            <p>Aucun credit de points pour le moment.</p>
+            <p>Aucun crédit de points pour le moment.</p>
         {% else %}
             <table>
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Reference</th>
+                        <th>Référence</th>
                         <th>Motif</th>
                         <th>Points</th>
                     </tr>
@@ -38,7 +38,7 @@
 
     <section>
         <h2>Ajouter des preuves d'impact</h2>
-        <p>Ajoutez des certificats et autres pieces qui prouvent l'impact positif de votre entreprise.</p>
+        <p>Ajoutez des certificats et autres pièces qui prouvent l'impact positif de votre entreprise.</p>
 
         {{ form_start(form, {attr: {enctype: 'multipart/form-data'}}) }}
             {{ form_row(form.claimType) }}
@@ -50,9 +50,9 @@
     </section>
 
     <section>
-        <h2>Suivi des preuves envoyees</h2>
+        <h2>Suivi des preuves envoyées</h2>
         {% if claims is empty %}
-            <p>Aucune preuve envoyee pour le moment.</p>
+            <p>Aucune preuve envoyée pour le moment.</p>
         {% else %}
             <table>
                 <thead>
@@ -62,7 +62,7 @@
                         <th>Date preuve</th>
                         <th>Statut</th>
                         <th>Score</th>
-                        <th>Points proposes</th>
+                        <th>Points proposés</th>
                         <th>Points acquis</th>
                         <th>Action</th>
                     </tr>
@@ -86,11 +86,12 @@
     </section>
 
     <section>
-        <h2>Decisions policy anti-abus</h2>
-        <p><strong>Blocages sur 24h:</strong> {{ policyRiskSummary.blocked24h }} / {{ policyRiskSummary.threshold24h }}</p>
-        <p><strong>Blocages sur 7 jours:</strong> {{ policyRiskSummary.blocked7d }}</p>
+        <h2>Décisions policy anti-abus</h2>
+        <p><strong>Blocages sur 24h :</strong> {{ policyRiskSummary.blocked24h }} / {{ policyRiskSummary.threshold24h }}</p>
+        <p><strong>Blocages sur 7 jours :</strong> {{ policyRiskSummary.blocked7d }}</p>
         {% if policyRiskSummary.cooldownActive %}
-            <p><strong>Cooldown actif jusqu'au:</strong> {{ policyRiskSummary.cooldownUntil ? policyRiskSummary.cooldownUntil|date('d/m/Y H:i') : '-' }}</p>
+            <p><strong>Pause de sécurité active jusqu'au :</strong> {{ policyRiskSummary.cooldownUntil ? policyRiskSummary.cooldownUntil|date('d/m/Y H:i') : '-' }}</p>
+            <p>Cette pause évite les abus. Préparez des justificatifs plus complets avant de renvoyer une demande.</p>
         {% endif %}
 
         <form method="get">
@@ -101,7 +102,7 @@
                 <option value="BLOCK" {{ policyStatusFilter == 'BLOCK' ? 'selected' : '' }}>BLOCK</option>
             </select>
 
-            <label for="policy_reference">Reference</label>
+            <label for="policy_reference">Référence</label>
             <select id="policy_reference" name="policy_reference">
                 <option value="" {{ policyReferenceFilter is null ? 'selected' : '' }}>Toutes</option>
                 <option value="POINTS_CLAIM_APPROVAL" {{ policyReferenceFilter == 'POINTS_CLAIM_APPROVAL' ? 'selected' : '' }}>Points claim</option>
@@ -112,14 +113,14 @@
         </form>
 
         {% if policyDecisions is empty %}
-            <p>Aucune decision policy pour ces filtres.</p>
+            <p>Aucune décision policy pour ces filtres.</p>
         {% else %}
             <table>
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Decision</th>
-                        <th>Reference</th>
+                        <th>Décision</th>
+                        <th>Référence</th>
                         <th>Points</th>
                         <th>Motif</th>
                     </tr>
@@ -128,10 +129,16 @@
                     {% for decision in policyDecisions %}
                         <tr>
                             <td>{{ decision.createdAt ? decision.createdAt|date('d/m/Y H:i') : '-' }}</td>
-                            <td>{{ decision.decisionStatus }}</td>
+                            <td>
+                                {{ pointsReasonLabelService.policyDecisionStatusLabel(decision.decisionStatus) }}
+                                {% if decision.decisionStatus %} ({{ decision.decisionStatus }}){% endif %}
+                            </td>
                             <td>{{ decision.referenceType }}{% if decision.referenceId %} #{{ decision.referenceId }}{% endif %}</td>
                             <td>{{ decision.points }}</td>
-                            <td>{{ decision.reasonCode }}</td>
+                            <td>
+                                {{ pointsReasonLabelService.policyReasonLabel(decision.reasonCode) }}
+                                {% if decision.reasonCode %} ({{ decision.reasonCode }}){% endif %}
+                            </td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -144,7 +151,7 @@
                             policy_page: policyPage - 1,
                             policy_status: policyStatusFilter,
                             policy_reference: policyReferenceFilter
-                        }) }}">Precedent</a>
+                        }) }}">Précédent</a>
                     {% endif %}
                     <span>Page {{ policyPage }} / {{ policyTotalPages }}</span>
                     {% if policyPage < policyTotalPages %}
