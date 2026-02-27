@@ -6,7 +6,6 @@ use App\Entity\Offer;
 use App\Entity\PointsClaim;
 use App\Entity\PointsClaimReviewEvent;
 use App\Entity\PointsPolicyDecision;
-use App\Service\ImpactEligibilityService;
 
 class PointsReasonLabelService
 {
@@ -54,6 +53,25 @@ class PointsReasonLabelService
     private const POLICY_STATUS_LABELS = [
         PointsPolicyDecision::STATUS_ALLOW => 'Autorisé',
         PointsPolicyDecision::STATUS_BLOCK => 'Bloqué',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const POINTS_CLAIM_STATUS_LABELS = [
+        PointsClaim::STATUS_SUBMITTED => 'Soumise',
+        PointsClaim::STATUS_APPROVED => 'Approuvée',
+        PointsClaim::STATUS_REJECTED => 'Rejetée',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const POINTS_CLAIM_TYPE_LABELS = [
+        PointsClaim::CLAIM_TYPE_TRAINING => 'Formation',
+        PointsClaim::CLAIM_TYPE_VOLUNTEERING => 'Bénévolat',
+        PointsClaim::CLAIM_TYPE_CERTIFICATION => 'Certification',
+        PointsClaim::CLAIM_TYPE_OTHER => 'Autre',
     ];
 
     /**
@@ -119,6 +137,26 @@ class PointsReasonLabelService
     public function policyReasonLabel(?string $reasonCode): string
     {
         return $this->pointsClaimReasonLabel($reasonCode);
+    }
+
+    public function pointsClaimStatusLabel(?string $status): string
+    {
+        $normalizedStatus = $this->normalizeCode($status);
+        if (null === $normalizedStatus) {
+            return '-';
+        }
+
+        return self::POINTS_CLAIM_STATUS_LABELS[$normalizedStatus] ?? $normalizedStatus;
+    }
+
+    public function pointsClaimTypeLabel(?string $type): string
+    {
+        $normalizedType = $this->normalizeCode($type);
+        if (null === $normalizedType) {
+            return '-';
+        }
+
+        return self::POINTS_CLAIM_TYPE_LABELS[$normalizedType] ?? $normalizedType;
     }
 
     public function offerStatusLabel(?string $status): string

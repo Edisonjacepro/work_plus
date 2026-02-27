@@ -5,6 +5,18 @@
 {% block body %}
     <h1>File de revue - demandes de points</h1>
 
+    {% set claimTypeLabels = {
+        'TRAINING': 'Formation',
+        'VOLUNTEERING': 'Bénévolat',
+        'CERTIFICATION': 'Certification',
+        'OTHER': 'Autre'
+    } %}
+    {% set claimStatusLabels = {
+        'SUBMITTED': 'Soumise',
+        'APPROVED': 'Approuvée',
+        'REJECTED': 'Rejetée'
+    } %}
+
     {% if claims is empty %}
         <p>Aucune demande en attente.</p>
     {% else %}
@@ -14,7 +26,7 @@
                     <th>ID</th>
                     <th>Entreprise</th>
                     <th>Type</th>
-                    <th>Points proposés</th>
+                    <th>Points proposes</th>
                     <th>Score</th>
                     <th>Statut</th>
                     <th>Date</th>
@@ -26,10 +38,10 @@
                     <tr>
                         <td>#{{ claim.id }}</td>
                         <td>{{ claim.company.name }}</td>
-                        <td>{{ claim.claimType }}</td>
+                        <td>{{ claimTypeLabels[claim.claimType] ?? claim.claimType }}</td>
                         <td>{{ claim.requestedPoints }}</td>
                         <td>{{ claim.evidenceScore }}</td>
-                        <td>{{ claim.status }}</td>
+                        <td>{{ claimStatusLabels[claim.status] ?? claim.status }}</td>
                         <td>{{ claim.createdAt ? claim.createdAt|date('d/m/Y H:i') : '-' }}</td>
                         <td><a href="{{ path('points_claim_show', {id: claim.id}) }}">Traiter</a></td>
                     </tr>

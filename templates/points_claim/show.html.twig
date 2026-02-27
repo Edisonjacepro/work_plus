@@ -3,35 +3,92 @@
 {% block title %}Demande de points #{{ claim.id }}{% endblock %}
 
 {% block body %}
-    <h1>Demande de points #{{ claim.id }}</h1>
-
-    <p><strong>Entreprise :</strong> {{ claim.company.name }}</p>
-    <p><strong>Type :</strong> {{ claim.claimType }}</p>
-    <p><strong>Points proposés :</strong> {{ claim.requestedPoints }}</p>
-    <p><strong>Points approuvés :</strong> {{ claim.approvedPoints ?? '-' }}</p>
-    <p><strong>Statut :</strong> {{ claim.status }}</p>
-    <p><strong>Date preuve :</strong> {{ claim.evidenceIssuedAt ? claim.evidenceIssuedAt|date('d/m/Y') : '-' }}</p>
-    <p><strong>Score justificatifs :</strong> {{ claim.evidenceScore }}</p>
-    <p>
-        <strong>Motif (code) :</strong>
-        {{ pointsReasonLabelService.pointsClaimReasonLabel(claim.decisionReasonCode) }}
-        {% if claim.decisionReasonCode %} ({{ claim.decisionReasonCode }}){% endif %}
-    </p>
-    <p><strong>Motif décision :</strong> {{ claim.decisionReason ?: '-' }}</p>
-    <p><strong>Date création :</strong> {{ claim.createdAt ? claim.createdAt|date('d/m/Y H:i') : '-' }}</p>
-    <p><strong>Date revue :</strong> {{ claim.reviewedAt ? claim.reviewedAt|date('d/m/Y H:i') : '-' }}</p>
-
     {% set coherence = claim.externalChecks and claim.externalChecks.coherence is defined and claim.externalChecks.coherence ? claim.externalChecks.coherence : null %}
+    {% set coherenceCriteria = coherence ? (coherence.criteria ?? {}) : {} %}
+    {% set statusClass = claim.status == 'APPROVED' ? 'claim-status-approved' : (claim.status == 'REJECTED' ? 'claim-status-rejected' : 'claim-status-submitted') %}
+
+    <section class="claim-header">
+        <div>
+            <p class="eyebrow">Demande de points</p>
+            <h1>Dossier #{{ claim.id }} - {{ claim.company.name }}</h1>
+            <p>
+                Motif:
+                {{ pointsReasonLabelService.pointsClaimReasonLabel(claim.decisionReasonCode) }}
+            </p>
+            <p>{{ claim.decisionReason ?: 'Aucun motif detaille.' }}</p>
+        </div>
+        <div class="impact-total-card">
+            <span class="impact-total-label">Statut</span>
+            <strong><span class="claim-status {{ statusClass }}">{{ pointsReasonLabelService.pointsClaimStatusLabel(claim.status) }}</span></strong>
+            <a class="btn btn-secondary btn-small" href="{{ path('points_claim_index') }}">Retour a mon impact</a>
+        </div>
+    </section>
+
+    <section>
+        <h2>Resume du dossier</h2>
+        <div class="claim-summary-grid">
+            <article class="summary-tile">
+                <span>Type</span>
+                <strong>{{ pointsReasonLabelService.pointsClaimTypeLabel(claim.claimType) }}</strong>
+            </article>
+            <article class="summary-tile">
+                <span>Date preuve</span>
+                <strong>{{ claim.evidenceIssuedAt ? claim.evidenceIssuedAt|date('d/m/Y') : '-' }}</strong>
+            </article>
+            <article class="summary-tile">
+                <span>Score justificatifs</span>
+                <strong>{{ claim.evidenceScore }}</strong>
+            </article>
+            <article class="summary-tile">
+                <span>Points proposes</span>
+                <strong>{{ claim.requestedPoints }}</strong>
+            </article>
+            <article class="summary-tile">
+                <span>Points approuves</span>
+                <strong>{{ claim.approvedPoints ?? '-' }}</strong>
+            </article>
+            <article class="summary-tile">
+                <span>Date revue</span>
+                <strong>{{ claim.reviewedAt ? claim.reviewedAt|date('d/m/Y H:i') : '-' }}</strong>
+            </article>
+        </div>
+    </section>
+
+    {% if claim.status == 'REJECTED' %}
+        <section class="impact-remediation">
+            <h2>Comment obtenir les points au prochain envoi</h2>
+            <p>Corrigez uniquement les blocs marques "A corriger", puis renvoyez votre dossier.</p>
+
+            {% if remediationItems is not empty %}
+                <div class="criteria-grid">
+                    {% for item in remediationItems %}
+                        <article class="criteria-card {{ item.isPassed ? 'is-ok' : 'is-missing' }}">
+                            <h3>{{ item.label }}</h3>
+                            <p>{{ item.help }}</p>
+                            <p class="criteria-result">{{ item.isPassed ? 'OK' : 'A corriger' }}</p>
+                            {% if not item.isPassed and item.actionUrl %}
+                                <a class="btn btn-secondary btn-small" href="{{ item.actionUrl }}">{{ item.actionLabel }}</a>
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="form-actions">
+                <a class="btn" href="{{ path('points_claim_index', {retry_claim: claim.id}) }}#claim-form">Corriger et renvoyer ce dossier</a>
+            </div>
+        </section>
+    {% endif %}
+
     {% if coherence %}
-        {% set coherenceCriteria = coherence.criteria ?? {} %}
         <section>
-            <h2>Cohérence des preuves</h2>
-            <p><strong>Statut :</strong> {{ coherence.isCoherent ? 'VALIDÉE' : 'NON VALIDÉE' }}</p>
+            <h2>Controle de coherence</h2>
+            <p><strong>Statut :</strong> {{ coherence.isCoherent ? 'VALIDE' : 'NON VALIDE' }}</p>
             <table>
                 <thead>
                     <tr>
-                        <th>Critère</th>
-                        <th>Résultat</th>
+                        <th>Critere</th>
+                        <th>Resultat</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -40,7 +97,7 @@
                         <td>{{ coherenceCriteria.profile_complete ?? false ? 'OK' : 'KO' }}</td>
                     </tr>
                     <tr>
-                        <td>Offre cohérente (si offre liée, elle appartient à l'entreprise)</td>
+                        <td>Offre coherente (si offre liee, elle appartient a l'entreprise)</td>
                         <td>{{ coherenceCriteria.offer_consistency ?? false ? 'OK' : 'KO' }}</td>
                     </tr>
                     <tr>
@@ -48,7 +105,7 @@
                         <td>{{ coherenceCriteria.evidence_date_valid ?? false ? 'OK' : 'KO' }}</td>
                     </tr>
                     <tr>
-                        <td>Au moins 2 justificatifs exploitables</td>
+                        <td>Au moins un justificatif exploitable</td>
                         <td>{{ coherenceCriteria.supporting_documents_minimum ?? false ? 'OK' : 'KO' }}</td>
                     </tr>
                 </tbody>
@@ -78,7 +135,7 @@
                             <td>{{ document.originalName ?? '-' }}</td>
                             <td>{{ document.mimeType ?? '-' }}</td>
                             <td>{{ document.size ?? 0 }} o</td>
-                            <td><a href="{{ path('points_claim_evidence_download', {id: claim.id, index: loop.index0}) }}">Télécharger</a></td>
+                            <td><a href="{{ path('points_claim_evidence_download', {id: claim.id, index: loop.index0}) }}">Telecharger</a></td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -87,9 +144,9 @@
     </section>
 
     <section>
-        <h2>Audit des décisions</h2>
+        <h2>Audit des decisions</h2>
         {% if events is empty %}
-            <p>Aucun événement de revue pour le moment.</p>
+            <p>Aucun evenement de revue pour le moment.</p>
         {% else %}
             <table>
                 <thead>
@@ -107,11 +164,9 @@
                             <td>{{ event.createdAt ? event.createdAt|date('d/m/Y H:i') : '-' }}</td>
                             <td>
                                 {{ pointsReasonLabelService.pointsClaimReviewActionLabel(event.action) }}
-                                {% if event.action %} ({{ event.action }}){% endif %}
                             </td>
                             <td>
                                 {{ pointsReasonLabelService.pointsClaimReasonLabel(event.reasonCode) }}
-                                {% if event.reasonCode %} ({{ event.reasonCode }}){% endif %}
                             </td>
                             <td>{{ event.reasonText ?: '-' }}</td>
                             <td>{{ event.actor ? event.actor.email : 'SYSTEM' }}</td>
@@ -121,8 +176,4 @@
             </table>
         {% endif %}
     </section>
-
-    <p>
-        <a href="{{ path('points_claim_index') }}">Retour aux demandes</a>
-    </p>
 {% endblock %}
