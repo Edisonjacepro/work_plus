@@ -416,7 +416,7 @@ class PointsClaimServiceTest extends TestCase
         self::assertNull($claim->getApprovedPoints());
     }
 
-    public function testSubmitRejectsWhenEvidenceScoreIsBelowAutomaticThreshold(): void
+    public function testSubmitRejectsWhenRequiredCriteriaAreMissing(): void
     {
         $claimRepository = $this->createMock(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
@@ -464,16 +464,17 @@ class PointsClaimServiceTest extends TestCase
         );
 
         self::assertSame(PointsClaim::STATUS_REJECTED, $claim->getStatus());
-        self::assertSame(45, $claim->getEvidenceScore());
-        self::assertSame(11, $claim->getRequestedPoints());
+        self::assertSame(25, $claim->getEvidenceScore());
+        self::assertSame(0, $claim->getRequestedPoints());
         self::assertSame(PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE, $claim->getDecisionReasonCode());
-        self::assertStringContainsString('score 45/100', (string) $claim->getDecisionReason());
-        self::assertStringContainsString('seuil 70', (string) $claim->getDecisionReason());
+        self::assertStringContainsString('Validation automatique refusée', (string) $claim->getDecisionReason());
+        self::assertStringNotContainsString('seuil 70', (string) $claim->getDecisionReason());
         self::assertTrue(is_array($claim->getExternalChecks()));
         $coherence = $claim->getExternalChecks()['coherence'] ?? null;
         self::assertTrue(is_array($coherence));
         self::assertFalse((bool) ($coherence['isCoherent'] ?? true));
         self::assertContains('profile_complete', $coherence['failedRequired'] ?? []);
+        self::assertContains('supporting_documents_minimum', $coherence['failedRequired'] ?? []);
         self::assertNull($claim->getApprovedPoints());
     }
 

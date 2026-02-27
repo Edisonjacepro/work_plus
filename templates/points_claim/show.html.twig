@@ -48,8 +48,8 @@
                         <td>{{ coherenceCriteria.evidence_date_valid ?? false ? 'OK' : 'KO' }}</td>
                     </tr>
                     <tr>
-                        <td>Au moins un justificatif exploitable</td>
-                        <td>{{ coherenceCriteria.has_usable_document ?? false ? 'OK' : 'KO' }}</td>
+                        <td>Au moins 2 justificatifs exploitables</td>
+                        <td>{{ coherenceCriteria.supporting_documents_minimum ?? false ? 'OK' : 'KO' }}</td>
                     </tr>
                 </tbody>
             </table>
