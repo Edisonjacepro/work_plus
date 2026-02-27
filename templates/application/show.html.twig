@@ -11,7 +11,7 @@
     <p>
         <strong>Statut :</strong>
         <span class="status-badge status-{{ application.status|lower }}">
-            {{ application.status == 'HIRED' ? 'Embauche' : 'Soumise' }}
+            {{ application.status == 'HIRED' ? 'Embauché' : 'Soumise' }}
         </span>
         {% if application.hiredAt %}
             ({{ application.hiredAt|date('d/m/Y H:i') }})

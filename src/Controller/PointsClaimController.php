@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Company;
+use App\Entity\Offer;
 use App\Entity\PointsClaim;
 use App\Entity\User;
 use App\Form\PointsClaimType;
@@ -62,6 +63,30 @@ class PointsClaimController extends AbstractController
         $company = $user->getCompany();
         $claim = (new PointsClaim())->setCompany($company);
         $offers = $offerRepository->findByAuthor((int) $user->getId());
+        $retryClaim = null;
+        $retryRemediationItems = [];
+
+        $retryClaimId = max(0, (int) $request->query->get('retry_claim', 0));
+        if ($retryClaimId > 0) {
+            $candidateClaim = $pointsClaimRepository->find($retryClaimId);
+            if (
+                $candidateClaim instanceof PointsClaim
+                && $candidateClaim->getCompany()?->getId() === $company->getId()
+                && PointsClaim::STATUS_REJECTED === $candidateClaim->getStatus()
+            ) {
+                $retryClaim = $candidateClaim;
+                $claim
+                    ->setClaimType($candidateClaim->getClaimType())
+                    ->setEvidenceIssuedAt($candidateClaim->getEvidenceIssuedAt());
+
+                $retryOffer = $candidateClaim->getOffer();
+                if ($retryOffer instanceof Offer && $this->offerBelongsToChoices($retryOffer, $offers)) {
+                    $claim->setOffer($retryOffer);
+                }
+
+                $retryRemediationItems = $this->buildRemediationItems($candidateClaim, $company);
+            }
+        }
 
         $form = $this->createForm(PointsClaimType::class, $claim, [
             'offer_choices' => $offers,
@@ -72,7 +97,7 @@ class PointsClaimController extends AbstractController
             /** @var list<UploadedFile> $uploadedFiles */
             $uploadedFiles = $form->get('evidenceFiles')->getData() ?? [];
             if ([] === $uploadedFiles) {
-                $form->get('evidenceFiles')->addError(new FormError('Au moins un justificatif est requis.'));
+                $form->get('evidenceFiles')->addError(new FormError('Ajoutez au moins un justificatif.'));
             } else {
                 $requestRateLimiterService->consumePointsClaimSubmit($user);
                 $riskSummary = $pointsPolicyRiskService->getCompanyRiskSummary($company);
@@ -203,6 +228,8 @@ class PointsClaimController extends AbstractController
             'policyReferenceFilter' => $policyReferenceFilter,
             'policyRiskSummary' => $policyRiskSummary,
             'pointsReasonLabelService' => $pointsReasonLabelService,
+            'retryClaim' => $retryClaim,
+            'retryRemediationItems' => $retryRemediationItems,
         ]);
     }
 
@@ -224,11 +251,16 @@ class PointsClaimController extends AbstractController
         $events = null !== $claim->getId()
             ? $reviewEventRepository->findLatestForClaim((int) $claim->getId())
             : [];
+        $claimCompany = $claim->getCompany();
+        $remediationItems = $claimCompany instanceof Company
+            ? $this->buildRemediationItems($claim, $claimCompany)
+            : [];
 
         return $this->render('points_claim/show.html.twig', [
             'claim' => $claim,
             'events' => $events,
             'pointsReasonLabelService' => $pointsReasonLabelService,
+            'remediationItems' => $remediationItems,
         ]);
     }
 
@@ -258,6 +290,92 @@ class PointsClaimController extends AbstractController
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $downloadName);
 
         return $response;
+    }
+
+    /**
+     * @param list<Offer> $offerChoices
+     */
+    private function offerBelongsToChoices(Offer $selectedOffer, array $offerChoices): bool
+    {
+        $selectedOfferId = $selectedOffer->getId();
+        if (null === $selectedOfferId) {
+            return false;
+        }
+
+        foreach ($offerChoices as $offerChoice) {
+            if (!$offerChoice instanceof Offer) {
+                continue;
+            }
+
+            if ($offerChoice->getId() === $selectedOfferId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<array{
+     *   code: string,
+     *   label: string,
+     *   help: string,
+     *   isPassed: bool,
+     *   actionLabel: ?string,
+     *   actionUrl: ?string
+     * }>
+     */
+    private function buildRemediationItems(PointsClaim $claim, Company $company): array
+    {
+        $externalChecks = $claim->getExternalChecks();
+        $coherence = is_array($externalChecks['coherence'] ?? null) ? $externalChecks['coherence'] : [];
+        $criteria = is_array($coherence['criteria'] ?? null) ? $coherence['criteria'] : [];
+
+        $companyEditUrl = null !== $company->getId()
+            ? $this->generateUrl('company_edit', ['id' => $company->getId()])
+            : null;
+        $claimFormUrl = $this->generateUrl('points_claim_index') . '#claim-form';
+
+        $definitions = [
+            'profile_complete' => [
+                'label' => 'Profil entreprise complet',
+                'help' => 'Renseignez le site web, la ville et le secteur de votre entreprise.',
+                'actionLabel' => 'Completer mon entreprise',
+                'actionUrl' => $companyEditUrl,
+            ],
+            'offer_consistency' => [
+                'label' => 'Offre coherente',
+                'help' => "Selectionnez uniquement une offre appartenant a votre entreprise, ou laissez vide.",
+                'actionLabel' => 'Verifier mon offre',
+                'actionUrl' => $claimFormUrl,
+            ],
+            'evidence_date_valid' => [
+                'label' => 'Date de preuve valide',
+                'help' => 'Choisissez une date non future et datant de moins de 24 mois.',
+                'actionLabel' => 'Corriger la date',
+                'actionUrl' => $claimFormUrl,
+            ],
+            'supporting_documents_minimum' => [
+                'label' => 'Au moins un justificatif exploitable',
+                'help' => 'Ajoutez un ou plusieurs fichiers lisibles (PDF, image ou document).',
+                'actionLabel' => 'Ajouter des justificatifs',
+                'actionUrl' => $claimFormUrl,
+            ],
+        ];
+
+        $items = [];
+        foreach ($definitions as $code => $definition) {
+            $items[] = [
+                'code' => $code,
+                'label' => $definition['label'],
+                'help' => $definition['help'],
+                'isPassed' => true === ($criteria[$code] ?? false),
+                'actionLabel' => $definition['actionLabel'],
+                'actionUrl' => $definition['actionUrl'],
+            ];
+        }
+
+        return $items;
     }
 
     /**

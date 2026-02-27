@@ -4,9 +4,9 @@
 
 {% block body %}
     <h1>Mes offres</h1>
-    <p><small>{{ totalItems }} résultat(s)</small></p>
+    <p><small>{{ totalItems }} resultat(s)</small></p>
 
-    <p><a href="{{ path('offer_new') }}">Créer une offre</a></p>
+    <p><a href="{{ path('offer_new') }}">Creer une offre</a></p>
 
     {% if offers is empty %}
         <p>Aucune offre.</p>
@@ -18,11 +18,9 @@
                     - {{ offer.company.name }}
                     <span class="status-badge status-{{ offer.status|lower }}">
                         {{ pointsReasonLabelService.offerStatusLabel(offer.status) }}
-                        {% if offer.status %} ({{ offer.status }}){% endif %}
                     </span>
                     <span class="status-badge status-{{ offer.moderationStatus|lower }}">
-                        Modération : {{ pointsReasonLabelService.offerModerationStatusLabel(offer.moderationStatus) }}
-                        {% if offer.moderationStatus %} ({{ offer.moderationStatus }}){% endif %}
+                        Moderation : {{ pointsReasonLabelService.offerModerationStatusLabel(offer.moderationStatus) }}
                     </span>
                 </li>
             {% endfor %}
@@ -31,7 +29,7 @@
         {% if totalPages > 1 %}
             <nav aria-label="Pagination offres recruteur">
                 {% if currentPage > 1 %}
-                    <a href="{{ path('recruiter_offer_index', {page: currentPage - 1}) }}">Page précédente</a>
+                    <a href="{{ path('recruiter_offer_index', {page: currentPage - 1}) }}">Page precedente</a>
                 {% endif %}
                 <span>Page {{ currentPage }} / {{ totalPages }}</span>
                 {% if currentPage < totalPages %}

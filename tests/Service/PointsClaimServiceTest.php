@@ -464,7 +464,7 @@ class PointsClaimServiceTest extends TestCase
         );
 
         self::assertSame(PointsClaim::STATUS_REJECTED, $claim->getStatus());
-        self::assertSame(25, $claim->getEvidenceScore());
+        self::assertSame(50, $claim->getEvidenceScore());
         self::assertSame(0, $claim->getRequestedPoints());
         self::assertSame(PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE, $claim->getDecisionReasonCode());
         self::assertStringContainsString('Validation automatique refusée', (string) $claim->getDecisionReason());
@@ -474,7 +474,7 @@ class PointsClaimServiceTest extends TestCase
         self::assertTrue(is_array($coherence));
         self::assertFalse((bool) ($coherence['isCoherent'] ?? true));
         self::assertContains('profile_complete', $coherence['failedRequired'] ?? []);
-        self::assertContains('supporting_documents_minimum', $coherence['failedRequired'] ?? []);
+        self::assertNotContains('supporting_documents_minimum', $coherence['failedRequired'] ?? []);
         self::assertNull($claim->getApprovedPoints());
     }
 

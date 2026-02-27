@@ -3,166 +3,212 @@
 {% block title %}Mon impact{% endblock %}
 
 {% block body %}
-    <h1>Mon impact - {{ company.name }}</h1>
+    <div class="impact-page">
+        <section class="impact-hero">
+            <div>
+                <p class="eyebrow">Espace entreprise</p>
+                <h1>Mon impact - {{ company.name }}</h1>
+                <p>Suivez vos points, comprenez les refus et renvoyez un dossier corrige en quelques minutes.</p>
+            </div>
+            <div class="impact-total-card">
+                <span class="impact-total-label">Total cumule</span>
+                <strong class="impact-total-value">{{ impactPointsBalance }}</strong>
+                <a class="btn btn-secondary btn-small" href="{{ path('points_guide_index') }}">Guide des points</a>
+            </div>
+        </section>
 
-    <section>
-        <h2>Points acquis</h2>
-        <p><strong>Total cumulé :</strong> {{ impactPointsBalance }}</p>
+        {% if retryClaim %}
+            <section class="impact-remediation" id="retry-guide">
+                <h2>Corriger le dossier #{{ retryClaim.id }}</h2>
+                <p>
+                    Motif: {{ pointsReasonLabelService.pointsClaimReasonLabel(retryClaim.decisionReasonCode) }}
+                </p>
+                <p>{{ retryClaim.decisionReason ?: 'Des criteres obligatoires ne sont pas encore valides.' }}</p>
 
-        <h3>Historique des points</h3>
-        {% if companyPointsHistory is empty %}
-            <p>Aucun crédit de points pour le moment.</p>
-        {% else %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Référence</th>
-                        <th>Motif</th>
-                        <th>Points</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for entry in companyPointsHistory %}
-                        <tr>
-                            <td>{{ entry.createdAt ? entry.createdAt|date('d/m/Y H:i') : '-' }}</td>
-                            <td>{{ entry.referenceType }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
-                            <td>{{ entry.reason }}</td>
-                            <td>{{ entry.points > 0 ? '+' ~ entry.points : entry.points }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endif %}
-    </section>
-
-    <section>
-        <h2>Ajouter des preuves d'impact</h2>
-        <p>Ajoutez des certificats et autres pièces qui prouvent l'impact positif de votre entreprise.</p>
-
-        {{ form_start(form, {attr: {enctype: 'multipart/form-data'}}) }}
-            {{ form_row(form.claimType) }}
-            {{ form_row(form.offer) }}
-            {{ form_row(form.evidenceIssuedAt) }}
-            {{ form_row(form.evidenceFiles) }}
-            <button type="submit">Envoyer mes preuves</button>
-        {{ form_end(form) }}
-    </section>
-
-    <section>
-        <h2>Suivi des preuves envoyées</h2>
-        {% if claims is empty %}
-            <p>Aucune preuve envoyée pour le moment.</p>
-        {% else %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Date preuve</th>
-                        <th>Statut</th>
-                        <th>Score</th>
-                        <th>Points proposés</th>
-                        <th>Points acquis</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for claim in claims %}
-                        <tr>
-                            <td>{{ claim.createdAt ? claim.createdAt|date('d/m/Y H:i') : '-' }}</td>
-                            <td>{{ claim.claimType }}</td>
-                            <td>{{ claim.evidenceIssuedAt ? claim.evidenceIssuedAt|date('d/m/Y') : '-' }}</td>
-                            <td>{{ claim.status }}</td>
-                            <td>{{ claim.evidenceScore }}</td>
-                            <td>{{ claim.requestedPoints }}</td>
-                            <td>{{ claim.approvedPoints ?? '-' }}</td>
-                            <td><a href="{{ path('points_claim_show', {id: claim.id}) }}">Voir</a></td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endif %}
-    </section>
-
-    <section>
-        <h2>Décisions policy anti-abus</h2>
-        <p><strong>Blocages sur 24h :</strong> {{ policyRiskSummary.blocked24h }} / {{ policyRiskSummary.threshold24h }}</p>
-        <p><strong>Blocages sur 7 jours :</strong> {{ policyRiskSummary.blocked7d }}</p>
-        {% if policyRiskSummary.cooldownActive %}
-            <p><strong>Pause de sécurité active jusqu'au :</strong> {{ policyRiskSummary.cooldownUntil ? policyRiskSummary.cooldownUntil|date('d/m/Y H:i') : '-' }}</p>
-            <p>Cette pause évite les abus. Préparez des justificatifs plus complets avant de renvoyer une demande.</p>
+                {% if retryRemediationItems is not empty %}
+                    <div class="criteria-grid">
+                        {% for item in retryRemediationItems %}
+                            <article class="criteria-card {{ item.isPassed ? 'is-ok' : 'is-missing' }}">
+                                <h3>{{ item.label }}</h3>
+                                <p>{{ item.help }}</p>
+                                <p class="criteria-result">
+                                    {{ item.isPassed ? 'OK' : 'A corriger' }}
+                                </p>
+                                {% if not item.isPassed and item.actionUrl %}
+                                    <a class="btn btn-secondary btn-small" href="{{ item.actionUrl }}">{{ item.actionLabel }}</a>
+                                {% endif %}
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </section>
         {% endif %}
 
-        <form method="get">
-            <label for="policy_status">Statut</label>
-            <select id="policy_status" name="policy_status">
-                <option value="" {{ policyStatusFilter is null ? 'selected' : '' }}>Tous</option>
-                <option value="ALLOW" {{ policyStatusFilter == 'ALLOW' ? 'selected' : '' }}>ALLOW</option>
-                <option value="BLOCK" {{ policyStatusFilter == 'BLOCK' ? 'selected' : '' }}>BLOCK</option>
-            </select>
+        <section id="claim-form">
+            <h2>{{ retryClaim ? 'Renvoyer un dossier corrige' : "Ajouter des preuves d'impact" }}</h2>
+            <p>Checklist rapide: date valide, un ou plusieurs justificatifs, et offre coherente si vous en selectionnez une.</p>
 
-            <label for="policy_reference">Référence</label>
-            <select id="policy_reference" name="policy_reference">
-                <option value="" {{ policyReferenceFilter is null ? 'selected' : '' }}>Toutes</option>
-                <option value="POINTS_CLAIM_APPROVAL" {{ policyReferenceFilter == 'POINTS_CLAIM_APPROVAL' ? 'selected' : '' }}>Points claim</option>
-                <option value="OFFER_PUBLICATION" {{ policyReferenceFilter == 'OFFER_PUBLICATION' ? 'selected' : '' }}>Offer publication</option>
-                <option value="APPLICATION_HIRED" {{ policyReferenceFilter == 'APPLICATION_HIRED' ? 'selected' : '' }}>Application hired</option>
-            </select>
-            <button type="submit">Filtrer</button>
-        </form>
-
-        {% if policyDecisions is empty %}
-            <p>Aucune décision policy pour ces filtres.</p>
-        {% else %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Décision</th>
-                        <th>Référence</th>
-                        <th>Points</th>
-                        <th>Motif</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for decision in policyDecisions %}
-                        <tr>
-                            <td>{{ decision.createdAt ? decision.createdAt|date('d/m/Y H:i') : '-' }}</td>
-                            <td>
-                                {{ pointsReasonLabelService.policyDecisionStatusLabel(decision.decisionStatus) }}
-                                {% if decision.decisionStatus %} ({{ decision.decisionStatus }}){% endif %}
-                            </td>
-                            <td>{{ decision.referenceType }}{% if decision.referenceId %} #{{ decision.referenceId }}{% endif %}</td>
-                            <td>{{ decision.points }}</td>
-                            <td>
-                                {{ pointsReasonLabelService.policyReasonLabel(decision.reasonCode) }}
-                                {% if decision.reasonCode %} ({{ decision.reasonCode }}){% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
-            {% if policyTotalPages > 1 %}
-                <nav aria-label="Pagination decisions policy">
-                    {% if policyPage > 1 %}
-                        <a href="{{ path('points_claim_index', {
-                            policy_page: policyPage - 1,
-                            policy_status: policyStatusFilter,
-                            policy_reference: policyReferenceFilter
-                        }) }}">Précédent</a>
+            {{ form_start(form, {attr: {enctype: 'multipart/form-data'}}) }}
+                {{ form_row(form.claimType) }}
+                {{ form_row(form.offer) }}
+                {{ form_row(form.evidenceIssuedAt) }}
+                {{ form_row(form.evidenceFiles) }}
+                <div class="form-actions">
+                    <button class="btn" type="submit">{{ retryClaim ? 'Renvoyer mon dossier corrige' : 'Envoyer mes preuves' }}</button>
+                    {% if retryClaim %}
+                        <a class="btn btn-secondary" href="{{ path('points_claim_show', {id: retryClaim.id}) }}">Voir le dossier precedent</a>
                     {% endif %}
-                    <span>Page {{ policyPage }} / {{ policyTotalPages }}</span>
-                    {% if policyPage < policyTotalPages %}
-                        <a href="{{ path('points_claim_index', {
-                            policy_page: policyPage + 1,
-                            policy_status: policyStatusFilter,
-                            policy_reference: policyReferenceFilter
-                        }) }}">Suivant</a>
-                    {% endif %}
-                </nav>
+                </div>
+            {{ form_end(form) }}
+        </section>
+
+        <section>
+            <h2>Historique des points</h2>
+            {% if companyPointsHistory is empty %}
+                <p>Aucun credit de points pour le moment.</p>
+            {% else %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Reference</th>
+                            <th>Motif</th>
+                            <th>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in companyPointsHistory %}
+                            <tr>
+                                <td>{{ entry.createdAt ? entry.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                                <td>{{ entry.referenceType }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
+                                <td>{{ entry.reason }}</td>
+                                <td>{{ entry.points > 0 ? '+' ~ entry.points : entry.points }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             {% endif %}
-        {% endif %}
-    </section>
+        </section>
+
+        <section>
+            <h2>Suivi des preuves envoyees</h2>
+            {% if claims is empty %}
+                <p>Aucune preuve envoyee pour le moment.</p>
+            {% else %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Date preuve</th>
+                            <th>Statut</th>
+                            <th>Score</th>
+                            <th>Points proposes</th>
+                            <th>Points acquis</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for claim in claims %}
+                            {% set statusClass = claim.status == 'APPROVED' ? 'claim-status-approved' : (claim.status == 'REJECTED' ? 'claim-status-rejected' : 'claim-status-submitted') %}
+                            <tr>
+                                <td>{{ claim.createdAt ? claim.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                                <td>{{ pointsReasonLabelService.pointsClaimTypeLabel(claim.claimType) }}</td>
+                                <td>{{ claim.evidenceIssuedAt ? claim.evidenceIssuedAt|date('d/m/Y') : '-' }}</td>
+                                <td><span class="claim-status {{ statusClass }}">{{ pointsReasonLabelService.pointsClaimStatusLabel(claim.status) }}</span></td>
+                                <td>{{ claim.evidenceScore }}</td>
+                                <td>{{ claim.requestedPoints }}</td>
+                                <td>{{ claim.approvedPoints ?? '-' }}</td>
+                                <td class="table-actions">
+                                    <a href="{{ path('points_claim_show', {id: claim.id}) }}">Voir</a>
+                                    {% if claim.status == 'REJECTED' %}
+                                        <a href="{{ path('points_claim_index', {retry_claim: claim.id}) }}#claim-form">Corriger</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </section>
+
+        <section>
+            <h2>Decisions policy anti-abus</h2>
+            <p><strong>Blocages sur 24h :</strong> {{ policyRiskSummary.blocked24h }} / {{ policyRiskSummary.threshold24h }}</p>
+            <p><strong>Blocages sur 7 jours :</strong> {{ policyRiskSummary.blocked7d }}</p>
+            {% if policyRiskSummary.cooldownActive %}
+                <p><strong>Pause de securite active jusqu'au :</strong> {{ policyRiskSummary.cooldownUntil ? policyRiskSummary.cooldownUntil|date('d/m/Y H:i') : '-' }}</p>
+                <p>Preparez un dossier plus complet avant de renvoyer une demande.</p>
+            {% endif %}
+
+            <form method="get">
+                <label for="policy_status">Statut</label>
+                <select id="policy_status" name="policy_status">
+                    <option value="" {{ policyStatusFilter is null ? 'selected' : '' }}>Tous</option>
+                    <option value="ALLOW" {{ policyStatusFilter == 'ALLOW' ? 'selected' : '' }}>Autorisé</option>
+                    <option value="BLOCK" {{ policyStatusFilter == 'BLOCK' ? 'selected' : '' }}>Bloqué</option>
+                </select>
+
+                <label for="policy_reference">Reference</label>
+                <select id="policy_reference" name="policy_reference">
+                    <option value="" {{ policyReferenceFilter is null ? 'selected' : '' }}>Toutes</option>
+                    <option value="POINTS_CLAIM_APPROVAL" {{ policyReferenceFilter == 'POINTS_CLAIM_APPROVAL' ? 'selected' : '' }}>Points claim</option>
+                    <option value="OFFER_PUBLICATION" {{ policyReferenceFilter == 'OFFER_PUBLICATION' ? 'selected' : '' }}>Offer publication</option>
+                    <option value="APPLICATION_HIRED" {{ policyReferenceFilter == 'APPLICATION_HIRED' ? 'selected' : '' }}>Application hired</option>
+                </select>
+                <button type="submit">Filtrer</button>
+            </form>
+
+            {% if policyDecisions is empty %}
+                <p>Aucune decision policy pour ces filtres.</p>
+            {% else %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Decision</th>
+                            <th>Reference</th>
+                            <th>Points</th>
+                            <th>Motif</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for decision in policyDecisions %}
+                            <tr>
+                                <td>{{ decision.createdAt ? decision.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                                <td>
+                                    {{ pointsReasonLabelService.policyDecisionStatusLabel(decision.decisionStatus) }}
+                                </td>
+                                <td>{{ decision.referenceType }}{% if decision.referenceId %} #{{ decision.referenceId }}{% endif %}</td>
+                                <td>{{ decision.points }}</td>
+                                <td>
+                                    {{ pointsReasonLabelService.policyReasonLabel(decision.reasonCode) }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                {% if policyTotalPages > 1 %}
+                    <nav aria-label="Pagination decisions policy">
+                        {% if policyPage > 1 %}
+                            <a href="{{ path('points_claim_index', {
+                                policy_page: policyPage - 1,
+                                policy_status: policyStatusFilter,
+                                policy_reference: policyReferenceFilter
+                            }) }}">Precedent</a>
+                        {% endif %}
+                        <span>Page {{ policyPage }} / {{ policyTotalPages }}</span>
+                        {% if policyPage < policyTotalPages %}
+                            <a href="{{ path('points_claim_index', {
+                                policy_page: policyPage + 1,
+                                policy_status: policyStatusFilter,
+                                policy_reference: policyReferenceFilter
+                            }) }}">Suivant</a>
+                        {% endif %}
+                    </nav>
+                {% endif %}
+            {% endif %}
+        </section>
+    </div>
 {% endblock %}

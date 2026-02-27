@@ -16,7 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 class PointsClaimService
 {
     private const EVIDENCE_MAX_AGE_MONTHS = 24;
-    private const MIN_REQUIRED_DOCUMENTS = 2;
+    private const MIN_REQUIRED_DOCUMENTS = 1;
     private const REINFORCED_DOCUMENTS_COUNT = 4;
     private const STANDARD_APPROVED_POINTS = 10;
     private const REINFORCED_APPROVED_POINTS = 20;

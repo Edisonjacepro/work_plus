@@ -86,7 +86,7 @@ class PointsClaimAutomationControllerTest extends WebTestCase
         $client->loginUser($user);
         $token = $this->fetchPointsClaimToken($client);
 
-        $filePaths = $this->createTempEvidenceFiles(['single-proof']);
+        $filePaths = $this->createTempEvidenceFiles(['single-proof-a', 'single-proof-b']);
         $this->submitPointsClaim($client, $token, PointsClaim::CLAIM_TYPE_OTHER, $filePaths, '2026-02-20');
         self::assertResponseStatusCodeSame(302);
 
@@ -113,6 +113,39 @@ class PointsClaimAutomationControllerTest extends WebTestCase
             'referenceType' => PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL,
         ]);
         self::assertCount(0, $ledgerEntries);
+    }
+
+    public function testRejectedClaimCanBeRetriedFromGuidedScreen(): void
+    {
+        $client = static::createClient();
+        $entityManager = $this->requireDatabaseOrSkip();
+
+        [$company, $user] = $this->createCompanyUser($entityManager, false);
+        $entityManager->flush();
+
+        $client->loginUser($user);
+        $token = $this->fetchPointsClaimToken($client);
+        $filePaths = $this->createTempEvidenceFiles(['retry-a', 'retry-b']);
+        $this->submitPointsClaim($client, $token, PointsClaim::CLAIM_TYPE_OTHER, $filePaths, '2026-02-20');
+        self::assertResponseStatusCodeSame(302);
+
+        $entityManager->clear();
+
+        /** @var Company|null $savedCompany */
+        $savedCompany = $entityManager->getRepository(Company::class)->find($company->getId());
+        self::assertInstanceOf(Company::class, $savedCompany);
+
+        /** @var PointsClaimRepository $claimRepository */
+        $claimRepository = $entityManager->getRepository(PointsClaim::class);
+        $claims = $claimRepository->findLatestForCompany((int) $savedCompany->getId(), 10);
+        self::assertCount(1, $claims);
+        $claimId = (int) $claims[0]->getId();
+
+        $client->request('GET', '/points-claims?retry_claim=' . $claimId);
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Corriger le dossier #' . $claimId, $html);
+        self::assertStringContainsString('Renvoyer mon dossier corrige', $html);
     }
 
     public function testSubmitPointsClaimIsIdempotentForSameEvidencePayload(): void
