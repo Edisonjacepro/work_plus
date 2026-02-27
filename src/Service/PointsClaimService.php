@@ -15,8 +15,14 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class PointsClaimService
 {
-    private const AUTO_APPROVAL_THRESHOLD = 70;
     private const EVIDENCE_MAX_AGE_MONTHS = 24;
+    private const MIN_REQUIRED_DOCUMENTS = 2;
+    private const REINFORCED_DOCUMENTS_COUNT = 4;
+    private const STANDARD_APPROVED_POINTS = 10;
+    private const REINFORCED_APPROVED_POINTS = 20;
+    private const EXTERNAL_CHECKS_BONUS_POINTS = 5;
+    private const EXTERNAL_CHECKS_BONUS_MIN_TRUE_CHECKS = 2;
+    private const MAX_APPROVED_POINTS = 25;
 
     public function __construct(
         private readonly PointsClaimRepository $pointsClaimRepository,
@@ -59,8 +65,8 @@ class PointsClaimService
         $coherence = $this->evaluateCoherence($evidenceDocuments, $normalizedExternalChecks, $evidenceIssuedAt);
         $normalizedExternalChecks['coherence'] = $coherence;
 
-        $evidenceScore = $this->computeEvidenceScore($evidenceDocuments, $normalizedExternalChecks);
-        $suggestedPoints = $this->computeSuggestedPoints($evidenceScore);
+        $evidenceScore = $this->computeEvidenceScore($coherence);
+        $suggestedPoints = $this->computeSuggestedPoints($coherence, $normalizedExternalChecks);
         $companyId = $company->getId();
         if (null === $companyId) {
             throw new \InvalidArgumentException('Company id is required.');
@@ -169,7 +175,7 @@ class PointsClaimService
                     'evidenceIssuedAt' => $evidenceIssuedAt?->format('Y-m-d'),
                 ],
             );
-        } elseif ($evidenceScore >= self::AUTO_APPROVAL_THRESHOLD) {
+        } elseif (true === ($coherence['isCoherent'] ?? false)) {
             $policyDecision = $this->pointsPolicyService->evaluateCompanyCredit(
                 company: $company,
                 points: $suggestedPoints,
@@ -204,31 +210,36 @@ class PointsClaimService
                     ->setStatus(PointsClaim::STATUS_APPROVED)
                     ->setApprovedPoints($suggestedPoints)
                     ->setDecisionReasonCode(PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE)
-                    ->setDecisionReason('Validation automatique par score.')
+                    ->setDecisionReason(sprintf(
+                        'Validation automatique réussie : critères requis validés. Points attribués : %d.',
+                        $suggestedPoints,
+                    ))
                     ->setReviewedAt(new \DateTimeImmutable());
                 $this->createReviewEvent(
                     pointsClaim: $claim,
                     action: PointsClaimReviewEvent::ACTION_AUTO_APPROVED,
                     reasonCode: PointsClaim::REASON_CODE_AUTO_APPROVED_SCORE,
                     reasonText: null,
-                    metadata: null,
+                    metadata: [
+                        'requiredCriteriaCount' => count($coherence['requiredCriteria'] ?? []),
+                        'approvedPoints' => $suggestedPoints,
+                        'pointsBreakdown' => [
+                            'base' => (int) ($coherence['basePoints'] ?? 0),
+                            'externalChecksBonus' => (int) ($coherence['externalChecksBonus'] ?? 0),
+                        ],
+                    ],
                 );
             }
         } else {
-            $missingScore = max(0, self::AUTO_APPROVAL_THRESHOLD - $evidenceScore);
             $failedCriteria = is_array($coherence['failedRequired'] ?? null)
                 ? array_values(array_filter($coherence['failedRequired'], static fn (mixed $value): bool => is_string($value)))
                 : [];
-            $reason = sprintf(
-                'Validation automatique refusée : score %d/100 (seuil %d, manque %d).',
-                $evidenceScore,
-                self::AUTO_APPROVAL_THRESHOLD,
-                $missingScore,
-            );
-            if ([] !== $failedCriteria) {
-                $reason .= ' Cohérence non validée : ' . implode(', ', $failedCriteria) . '.';
+            $formattedCriteria = $this->formatCriteriaForReason($failedCriteria);
+            $reason = 'Validation automatique refusée : critères requis non validés.';
+            if ('' !== $formattedCriteria) {
+                $reason .= ' Critères manquants -> ' . $formattedCriteria . '.';
             }
-            $reason .= ' Ajoutez des justificatifs exploitables et des informations cohérentes.';
+            $reason .= ' Action attendue : complétez ces éléments puis renvoyez la demande.';
 
             $claim
                 ->setStatus(PointsClaim::STATUS_REJECTED)
@@ -241,9 +252,8 @@ class PointsClaimService
                 reasonCode: PointsClaim::REASON_CODE_INSUFFICIENT_EVIDENCE_SCORE,
                 reasonText: null,
                 metadata: [
-                    'score' => $evidenceScore,
-                    'threshold' => self::AUTO_APPROVAL_THRESHOLD,
-                    'missing' => $missingScore,
+                    'requiredCriteriaCount' => count($coherence['requiredCriteria'] ?? []),
+                    'criteriaPassedCount' => count($coherence['passedRequired'] ?? []),
                     'failedRequiredCoherenceCriteria' => $failedCriteria,
                 ],
             );
@@ -284,45 +294,49 @@ class PointsClaimService
     }
 
     /**
-     * @param list<array<string, mixed>> $evidenceDocuments
-     * @param array<string, mixed>|null $externalChecks
+     * @param array{
+     *   requiredCriteria?: list<string>,
+     *   passedRequired?: list<string>
+     * } $coherence
      */
-    private function computeEvidenceScore(array $evidenceDocuments, ?array $externalChecks): int
+    private function computeEvidenceScore(array $coherence): int
     {
-        $documentCount = count($evidenceDocuments);
-
-        $completenessScore = min(40, $documentCount * 10);
-
-        $validDocuments = 0;
-        foreach ($evidenceDocuments as $document) {
-            if (true === ($document['valid'] ?? false)) {
-                ++$validDocuments;
-            }
+        $requiredCriteria = is_array($coherence['requiredCriteria'] ?? null) ? $coherence['requiredCriteria'] : [];
+        $passedRequired = is_array($coherence['passedRequired'] ?? null) ? $coherence['passedRequired'] : [];
+        $requiredCount = count($requiredCriteria);
+        if (0 === $requiredCount) {
+            return 0;
         }
-        $technicalScore = min(20, $validDocuments * 5);
 
-        $coherenceData = is_array($externalChecks['coherence'] ?? null) ? $externalChecks['coherence'] : [];
-        $coherenceScore = true === ($coherenceData['isCoherent'] ?? ($externalChecks['coherenceOk'] ?? null)) ? 20 : 0;
-
-        $apiScore = 0;
-        $checks = is_array($externalChecks['checks'] ?? null) ? $externalChecks['checks'] : [];
-        foreach ($checks as $value) {
-            if (true === $value) {
-                $apiScore += 5;
-            }
-        }
-        $apiScore = min(20, $apiScore);
-
-        $score = $completenessScore + $technicalScore + $coherenceScore + $apiScore;
-
-        return max(0, min(100, $score));
+        return (int) round((count($passedRequired) / $requiredCount) * 100);
     }
 
-    private function computeSuggestedPoints(int $evidenceScore): int
+    /**
+     * @param array{
+     *   isCoherent?: bool,
+     *   usableDocumentsCount?: int
+     * } $coherence
+     * @param array<string, mixed> $externalChecks
+     */
+    private function computeSuggestedPoints(array $coherence, array $externalChecks): int
     {
-        $suggested = (int) round($evidenceScore * 0.25);
+        if (true !== ($coherence['isCoherent'] ?? false)) {
+            return 0;
+        }
 
-        return max(5, min(30, $suggested));
+        $usableDocumentsCount = (int) ($coherence['usableDocumentsCount'] ?? 0);
+        $basePoints = $usableDocumentsCount >= self::REINFORCED_DOCUMENTS_COUNT
+            ? self::REINFORCED_APPROVED_POINTS
+            : self::STANDARD_APPROVED_POINTS;
+
+        $trueChecksCount = $this->countTrueChecks($externalChecks);
+        $bonusPoints = $trueChecksCount >= self::EXTERNAL_CHECKS_BONUS_MIN_TRUE_CHECKS
+            ? self::EXTERNAL_CHECKS_BONUS_POINTS
+            : 0;
+
+        $suggested = $basePoints + $bonusPoints;
+
+        return max(0, min(self::MAX_APPROVED_POINTS, $suggested));
     }
 
     /**
@@ -362,7 +376,11 @@ class PointsClaimService
      *   isCoherent: bool,
      *   criteria: array<string, bool>,
      *   failedRequired: list<string>,
-     *   requiredCriteria: list<string>
+     *   requiredCriteria: list<string>,
+     *   passedRequired: list<string>,
+     *   usableDocumentsCount: int,
+     *   basePoints: int,
+     *   externalChecksBonus: int
      * }
      */
     private function evaluateCoherence(
@@ -386,15 +404,27 @@ class PointsClaimService
             ? (false === $offerLinked || true === $sameCompanyOffer)
             : $legacyCoherenceOk;
         $evidenceDateValid = $this->isEvidenceDateValid($evidenceIssuedAt);
-        $hasUsableEvidenceDocument = $this->hasUsableEvidenceDocument($evidenceDocuments);
+        $usableDocumentsCount = $this->countUsableEvidenceDocuments($evidenceDocuments);
+        $supportingDocumentsMinimum = $usableDocumentsCount >= self::MIN_REQUIRED_DOCUMENTS;
+        $trueChecksCount = $this->countTrueChecks($externalChecks);
+        $basePoints = $usableDocumentsCount >= self::REINFORCED_DOCUMENTS_COUNT
+            ? self::REINFORCED_APPROVED_POINTS
+            : self::STANDARD_APPROVED_POINTS;
+        $externalChecksBonus = $trueChecksCount >= self::EXTERNAL_CHECKS_BONUS_MIN_TRUE_CHECKS
+            ? self::EXTERNAL_CHECKS_BONUS_POINTS
+            : 0;
 
         $criteria = [
             'profile_complete' => $profileComplete,
             'offer_consistency' => $offerConsistency,
             'evidence_date_valid' => $evidenceDateValid,
-            'has_usable_document' => $hasUsableEvidenceDocument,
+            'supporting_documents_minimum' => $supportingDocumentsMinimum,
         ];
         $requiredCriteria = array_keys($criteria);
+        $passedRequired = array_values(array_filter(
+            $requiredCriteria,
+            static fn (string $key): bool => true === $criteria[$key],
+        ));
         $failedRequired = array_values(array_filter(
             $requiredCriteria,
             static fn (string $key): bool => true !== $criteria[$key],
@@ -406,6 +436,10 @@ class PointsClaimService
             'criteria' => $criteria,
             'failedRequired' => $failedRequired,
             'requiredCriteria' => $requiredCriteria,
+            'passedRequired' => $passedRequired,
+            'usableDocumentsCount' => $usableDocumentsCount,
+            'basePoints' => $basePoints,
+            'externalChecksBonus' => $externalChecksBonus,
         ];
     }
 
@@ -426,19 +460,60 @@ class PointsClaimService
     /**
      * @param list<array<string, mixed>> $evidenceDocuments
      */
-    private function hasUsableEvidenceDocument(array $evidenceDocuments): bool
+    private function countUsableEvidenceDocuments(array $evidenceDocuments): int
     {
+        $count = 0;
         foreach ($evidenceDocuments as $document) {
             $isValid = true === ($document['valid'] ?? false);
             $fileHash = trim((string) ($document['fileHash'] ?? ''));
             $size = (int) ($document['size'] ?? 0);
 
             if ($isValid && ('' !== $fileHash || $size > 0)) {
-                return true;
+                ++$count;
             }
         }
 
-        return false;
+        return $count;
+    }
+
+    /**
+     * @param array<string, mixed> $externalChecks
+     */
+    private function countTrueChecks(array $externalChecks): int
+    {
+        $checks = is_array($externalChecks['checks'] ?? null) ? $externalChecks['checks'] : [];
+        $count = 0;
+        foreach ($checks as $value) {
+            if (true === $value) {
+                ++$count;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param list<string> $failedCriteria
+     */
+    private function formatCriteriaForReason(array $failedCriteria): string
+    {
+        if ([] === $failedCriteria) {
+            return '';
+        }
+
+        $labels = [
+            'profile_complete' => 'profil entreprise complet',
+            'offer_consistency' => 'offre cohérente',
+            'evidence_date_valid' => 'date de preuve valide',
+            'supporting_documents_minimum' => sprintf('au moins %d justificatifs exploitables', self::MIN_REQUIRED_DOCUMENTS),
+        ];
+
+        $parts = [];
+        foreach ($failedCriteria as $code) {
+            $parts[] = $labels[$code] ?? $code;
+        }
+
+        return implode(', ', $parts);
     }
 
     private function createApprovalLedgerEntry(PointsClaim $claim, int $points): void
