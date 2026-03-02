@@ -8,6 +8,7 @@ use App\Form\CompanyType;
 use App\Repository\CompanyRepository;
 use App\Security\CompanyVoter;
 use App\Service\PointsLedgerService;
+use App\Service\PointsReasonLabelService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -72,7 +73,11 @@ class CompanyController extends AbstractController
     }
 
     #[Route('/{id}', name: 'company_show', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function show(Company $company, PointsLedgerService $pointsLedgerService): Response
+    public function show(
+        Company $company,
+        PointsLedgerService $pointsLedgerService,
+        PointsReasonLabelService $pointsReasonLabelService
+    ): Response
     {
         $summary = $pointsLedgerService->getCompanySummary($company);
 
@@ -80,6 +85,7 @@ class CompanyController extends AbstractController
             'company' => $company,
             'impactPointsBalance' => $summary['balance'],
             'companyPointsHistory' => $summary['history'],
+            'pointsReasonLabelService' => $pointsReasonLabelService,
         ]);
     }
 

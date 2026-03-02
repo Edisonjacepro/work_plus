@@ -42,4 +42,18 @@ class PointsReasonLabelServiceTest extends TestCase
             $service->pointsClaimReviewActionLabel(PointsClaimReviewEvent::ACTION_AUTO_APPROVED),
         );
     }
+
+    public function testLedgerReferenceAndReasonLabelsAreLocalized(): void
+    {
+        $service = new PointsReasonLabelService();
+
+        self::assertSame(
+            'Validation de demande de points',
+            $service->ledgerReferenceLabel('POINTS_CLAIM_APPROVAL'),
+        );
+        self::assertSame(
+            'Demande de points validée',
+            $service->ledgerReasonLabel('Points claim approved'),
+        );
+    }
 }

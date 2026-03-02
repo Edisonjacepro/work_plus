@@ -55,8 +55,8 @@
                     {% for entry in companyPointsHistory %}
                         <tr>
                             <td>{{ entry.createdAt ? entry.createdAt|date('d/m/Y H:i') : '-' }}</td>
-                            <td>{{ entry.referenceType }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
-                            <td>{{ entry.reason }}</td>
+                            <td>{{ pointsReasonLabelService.ledgerReferenceLabel(entry.referenceType) }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
+                            <td>{{ pointsReasonLabelService.ledgerReasonLabel(entry.reason) }}</td>
                             <td>{{ entry.points > 0 ? '+' ~ entry.points : entry.points }}</td>
                             <td>
                                 {% if entry.metadata and entry.metadata.impactScore is defined %}
