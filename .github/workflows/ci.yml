@@ -14,9 +14,24 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: app
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       APP_ENV: test
       APP_DEBUG: 0
+      DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app?serverVersion=16&charset=utf8
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,6 +51,11 @@ jobs:
 
       - name: Run linters
         run: composer run ci:lint
+
+      - name: Prepare test database
+        run: |
+          php bin/console doctrine:database:create --if-not-exists --env=test --no-interaction
+          php bin/console doctrine:migrations:migrate --env=test --no-interaction
 
       - name: Run tests
         run: composer run ci:test
