@@ -184,10 +184,22 @@ class PointsClaimServiceTest extends TestCase
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 27);
 
-        $claimRepository->method('findOneByIdempotencyKey')->with('claim-key-2b')->willReturn(null);
-        $claimRepository->method('hasEvidenceHashForCompany')->willReturn(false);
-        $policyRiskService->method('getCompanyRiskSummary')->with($company)->willReturn($this->cooldownInactiveSummary());
-        $policyService->method('evaluateCompanyCredit')->willReturn(null);
+        $claimRepository->expects(self::once())
+            ->method('findOneByIdempotencyKey')
+            ->with('claim-key-2b')
+            ->willReturn(null);
+        $claimRepository->expects(self::exactly(4))
+            ->method('hasEvidenceHashForCompany')
+            ->with(27, self::callback(static fn (mixed $value): bool => is_string($value)))
+            ->willReturn(false);
+        $policyRiskService->expects(self::once())
+            ->method('getCompanyRiskSummary')
+            ->with($company)
+            ->willReturn($this->cooldownInactiveSummary());
+        $policyService->expects(self::once())
+            ->method('evaluateCompanyCredit')
+            ->with($company, 25, PointsLedgerEntry::REFERENCE_POINTS_CLAIM_APPROVAL)
+            ->willReturn(null);
         $policyAuditService->expects(self::once())->method('recordCompanyDecision');
 
         $ledgerRepository->expects(self::once())
@@ -491,8 +503,14 @@ class PointsClaimServiceTest extends TestCase
         $company = (new Company())->setName('Impact Co');
         $this->setEntityId($company, 9);
 
-        $claimRepository->method('findOneByIdempotencyKey')->willReturn(null);
-        $claimRepository->method('hasEvidenceHashForCompany')->willReturn(false);
+        $claimRepository->expects(self::once())
+            ->method('findOneByIdempotencyKey')
+            ->with('claim-key-old')
+            ->willReturn(null);
+        $claimRepository->expects(self::once())
+            ->method('hasEvidenceHashForCompany')
+            ->with(9, 'o1')
+            ->willReturn(false);
         $ledgerRepository->expects(self::never())->method('existsByIdempotencyKey');
         $policyService->expects(self::never())->method('evaluateCompanyCredit');
         $policyAuditService->expects(self::never())->method('recordCompanyDecision');
@@ -564,7 +582,7 @@ class PointsClaimServiceTest extends TestCase
 
     public function testApproveThrowsWhenManualReviewIsDisabled(): void
     {
-        $claimRepository = $this->createMock(PointsClaimRepository::class);
+        $claimRepository = $this->createStub(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
@@ -601,7 +619,7 @@ class PointsClaimServiceTest extends TestCase
 
     public function testRejectThrowsWhenManualReviewIsDisabled(): void
     {
-        $claimRepository = $this->createMock(PointsClaimRepository::class);
+        $claimRepository = $this->createStub(PointsClaimRepository::class);
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
         $policyService = $this->createMock(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);

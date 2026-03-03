@@ -93,7 +93,7 @@ class RecruiterSubscriptionServiceTest extends TestCase
         $repository = $this->createMock(RecruiterSubscriptionPaymentRepository::class);
         $entityManager = $this->createMock(EntityManagerInterface::class);
         $gatewayRegistry = $this->createMock(BillingGatewayRegistry::class);
-        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
         $planCatalog = new RecruiterPlanCatalog();
 
         $service = new RecruiterSubscriptionService(
@@ -138,9 +138,9 @@ class RecruiterSubscriptionServiceTest extends TestCase
     public function testHandleWebhookEventMarksPaymentAsSucceeded(): void
     {
         $repository = $this->createMock(RecruiterSubscriptionPaymentRepository::class);
-        $entityManager = $this->createMock(EntityManagerInterface::class);
-        $gatewayRegistry = $this->createMock(BillingGatewayRegistry::class);
-        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $entityManager = $this->createStub(EntityManagerInterface::class);
+        $gatewayRegistry = $this->createStub(BillingGatewayRegistry::class);
+        $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
         $planCatalog = new RecruiterPlanCatalog();
 
         $service = new RecruiterSubscriptionService(
@@ -199,4 +199,3 @@ class RecruiterSubscriptionServiceTest extends TestCase
         $reflection->setValue($entity, $id);
     }
 }
-
