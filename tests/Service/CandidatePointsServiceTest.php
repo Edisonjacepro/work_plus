@@ -210,10 +210,10 @@ class CandidatePointsServiceTest extends TestCase
     public function testGetCandidateSummaryReturnsBalanceLevelAndHistory(): void
     {
         $ledgerRepository = $this->createMock(PointsLedgerEntryRepository::class);
-        $impactScoreRepository = $this->createMock(ImpactScoreRepository::class);
-        $policyService = $this->createMock(PointsPolicyService::class);
+        $impactScoreRepository = $this->createStub(ImpactScoreRepository::class);
+        $policyService = $this->createStub(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
-        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager = $this->createStub(EntityManagerInterface::class);
         $service = new CandidatePointsService($ledgerRepository, $impactScoreRepository, $policyService, $policyAuditService, $entityManager);
 
         $candidate = (new User())->setEmail('candidate@example.com')->setAccountType(User::ACCOUNT_TYPE_PERSON);

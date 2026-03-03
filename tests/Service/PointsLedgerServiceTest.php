@@ -159,9 +159,9 @@ class PointsLedgerServiceTest extends TestCase
     public function testGetCompanyBalanceUsesRepositoryAggregation(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
-        $policyService = $this->createMock(PointsPolicyService::class);
+        $policyService = $this->createStub(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
-        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager = $this->createStub(EntityManagerInterface::class);
         $service = new PointsLedgerService($repository, $policyService, $policyAuditService, $entityManager);
 
         $company = (new Company())->setName('Work Plus');
@@ -179,9 +179,9 @@ class PointsLedgerServiceTest extends TestCase
     public function testGetCompanySummaryReturnsBalanceAndHistory(): void
     {
         $repository = $this->createMock(PointsLedgerEntryRepository::class);
-        $policyService = $this->createMock(PointsPolicyService::class);
+        $policyService = $this->createStub(PointsPolicyService::class);
         $policyAuditService = $this->createMock(PointsPolicyAuditService::class);
-        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager = $this->createStub(EntityManagerInterface::class);
         $service = new PointsLedgerService($repository, $policyService, $policyAuditService, $entityManager);
 
         $company = (new Company())->setName('Work Plus');
