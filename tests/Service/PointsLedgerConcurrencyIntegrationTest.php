@@ -7,6 +7,7 @@ use App\Entity\PointsClaim;
 use App\Entity\PointsLedgerEntry;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\ParameterType;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -18,7 +19,7 @@ class PointsLedgerConcurrencyIntegrationTest extends KernelTestCase
         $entityManager = $this->requireDatabaseOrSkip();
         $connection = $entityManager->getConnection();
 
-        if ('postgresql' !== $connection->getDatabasePlatform()->getName()) {
+        if (!$connection->getDatabasePlatform() instanceof PostgreSQLPlatform) {
             self::markTestSkipped('Ce test de concurrence necessite PostgreSQL.');
         }
 

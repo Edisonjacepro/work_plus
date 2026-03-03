@@ -10,13 +10,13 @@
         <p><strong>Email :</strong> {{ candidate.email }}</p>
         <p><strong>Prénom :</strong> {{ candidate.firstName ?: '-' }}</p>
         <p><strong>Nom :</strong> {{ candidate.lastName ?: '-' }}</p>
-        <p><strong>Type de compte :</strong> {{ candidate.accountType }}</p>
+        <p><strong>Type de compte :</strong> {{ pointsReasonLabelService.accountTypeLabel(candidate.accountType) }}</p>
     </section>
 
     <section>
         <h2>Points impact</h2>
         <p><strong>Total cumulé :</strong> {{ candidatePointsBalance }}</p>
-        <p><strong>Niveau :</strong> {{ candidatePointsLevel }}</p>
+        <p><strong>Niveau :</strong> {{ pointsReasonLabelService.candidateLevelLabel(candidatePointsLevel) }}</p>
 
         <h3>Détail des points</h3>
         {% if candidatePointsHistory is empty %}
@@ -36,8 +36,8 @@
                     {% for entry in candidatePointsHistory %}
                         <tr>
                             <td>{{ entry.createdAt ? entry.createdAt|date('d/m/Y H:i') : '-' }}</td>
-                            <td>{{ entry.referenceType }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
-                            <td>{{ entry.reason }}</td>
+                            <td>{{ pointsReasonLabelService.ledgerReferenceLabel(entry.referenceType) }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
+                            <td>{{ pointsReasonLabelService.ledgerReasonLabel(entry.reason) }}</td>
                             <td>{{ entry.points > 0 ? '+' ~ entry.points : entry.points }}</td>
                             <td>
                                 {% if entry.metadata and entry.metadata.basePoints is defined %}

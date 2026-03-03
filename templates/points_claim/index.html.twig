@@ -80,8 +80,8 @@
                         {% for entry in companyPointsHistory %}
                             <tr>
                                 <td>{{ entry.createdAt ? entry.createdAt|date('d/m/Y H:i') : '-' }}</td>
-                                <td>{{ entry.referenceType }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
-                                <td>{{ entry.reason }}</td>
+                                <td>{{ pointsReasonLabelService.ledgerReferenceLabel(entry.referenceType) }}{% if entry.referenceId %} #{{ entry.referenceId }}{% endif %}</td>
+                                <td>{{ pointsReasonLabelService.ledgerReasonLabel(entry.reason) }}</td>
                                 <td>{{ entry.points > 0 ? '+' ~ entry.points : entry.points }}</td>
                             </tr>
                         {% endfor %}
@@ -133,7 +133,7 @@
         </section>
 
         <section>
-            <h2>Decisions policy anti-abus</h2>
+            <h2>Decisions anti-abus</h2>
             <p><strong>Blocages sur 24h :</strong> {{ policyRiskSummary.blocked24h }} / {{ policyRiskSummary.threshold24h }}</p>
             <p><strong>Blocages sur 7 jours :</strong> {{ policyRiskSummary.blocked7d }}</p>
             {% if policyRiskSummary.cooldownActive %}
@@ -152,15 +152,15 @@
                 <label for="policy_reference">Reference</label>
                 <select id="policy_reference" name="policy_reference">
                     <option value="" {{ policyReferenceFilter is null ? 'selected' : '' }}>Toutes</option>
-                    <option value="POINTS_CLAIM_APPROVAL" {{ policyReferenceFilter == 'POINTS_CLAIM_APPROVAL' ? 'selected' : '' }}>Points claim</option>
-                    <option value="OFFER_PUBLICATION" {{ policyReferenceFilter == 'OFFER_PUBLICATION' ? 'selected' : '' }}>Offer publication</option>
-                    <option value="APPLICATION_HIRED" {{ policyReferenceFilter == 'APPLICATION_HIRED' ? 'selected' : '' }}>Application hired</option>
+                    <option value="POINTS_CLAIM_APPROVAL" {{ policyReferenceFilter == 'POINTS_CLAIM_APPROVAL' ? 'selected' : '' }}>Validation de demande de points</option>
+                    <option value="OFFER_PUBLICATION" {{ policyReferenceFilter == 'OFFER_PUBLICATION' ? 'selected' : '' }}>Publication d'offre</option>
+                    <option value="APPLICATION_HIRED" {{ policyReferenceFilter == 'APPLICATION_HIRED' ? 'selected' : '' }}>Candidature embauchee</option>
                 </select>
                 <button type="submit">Filtrer</button>
             </form>
 
             {% if policyDecisions is empty %}
-                <p>Aucune decision policy pour ces filtres.</p>
+                <p>Aucune decision anti-abus pour ces filtres.</p>
             {% else %}
                 <table>
                     <thead>
@@ -179,7 +179,7 @@
                                 <td>
                                     {{ pointsReasonLabelService.policyDecisionStatusLabel(decision.decisionStatus) }}
                                 </td>
-                                <td>{{ decision.referenceType }}{% if decision.referenceId %} #{{ decision.referenceId }}{% endif %}</td>
+                                <td>{{ pointsReasonLabelService.ledgerReferenceLabel(decision.referenceType) }}{% if decision.referenceId %} #{{ decision.referenceId }}{% endif %}</td>
                                 <td>{{ decision.points }}</td>
                                 <td>
                                     {{ pointsReasonLabelService.policyReasonLabel(decision.reasonCode) }}
@@ -190,7 +190,7 @@
                 </table>
 
                 {% if policyTotalPages > 1 %}
-                    <nav aria-label="Pagination decisions policy">
+                    <nav aria-label="Pagination decisions anti-abus">
                         {% if policyPage > 1 %}
                             <a href="{{ path('points_claim_index', {
                                 policy_page: policyPage - 1,

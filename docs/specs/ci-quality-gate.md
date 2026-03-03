@@ -13,7 +13,9 @@ Pipeline steps:
 1. `composer validate --strict`
 2. `composer install --prefer-dist --no-interaction --no-progress`
 3. `composer run ci:lint`
-4. `composer run ci:test`
+4. `php bin/console doctrine:database:create --if-not-exists --env=test --no-interaction`
+5. `php bin/console doctrine:migrations:migrate --env=test --no-interaction`
+6. `composer run ci:test`
 
 Additional security workflow:
 
@@ -38,6 +40,7 @@ Then keep real secrets in `.env.local` (untracked) or system env vars.
 ## Notes
 
 - The CI runs on PHP 8.4.
+- The `quality` job starts PostgreSQL 16 and prepares the Symfony test database before PHPUnit.
 - Concurrency is enabled to cancel older runs on the same branch.
 - Configure branch protection in GitHub to require:
   - `CI / quality`

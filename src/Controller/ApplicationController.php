@@ -11,6 +11,7 @@ use App\Repository\ApplicationRepository;
 use App\Security\ApplicationVoter;
 use App\Service\ApplicationMessageNotifier;
 use App\Service\CandidatePointsService;
+use App\Service\PointsReasonLabelService;
 use App\Service\RequestRateLimiterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -59,7 +60,8 @@ class ApplicationController extends AbstractController
     public function candidateIndex(
         Request $request,
         ApplicationRepository $applicationRepository,
-        CandidatePointsService $candidatePointsService
+        CandidatePointsService $candidatePointsService,
+        PointsReasonLabelService $pointsReasonLabelService
     ): Response
     {
         $user = $this->getUser();
@@ -81,6 +83,7 @@ class ApplicationController extends AbstractController
             'candidatePointsBalance' => $summary['balance'],
             'candidatePointsLevel' => $summary['level'],
             'candidatePointsHistory' => $summary['history'],
+            'pointsReasonLabelService' => $pointsReasonLabelService,
             'currentPage' => $currentPage,
             'totalPages' => $totalPages,
             'totalItems' => $total,

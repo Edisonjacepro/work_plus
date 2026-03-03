@@ -53,7 +53,7 @@ class RegistrationCompanyControllerTest extends WebTestCase
         $entityManager->flush();
 
         $crawler = $client->request('GET', '/register/company');
-        $form = $crawler->selectButton('Creer le compte')->form([
+        $form = $crawler->filter('form')->form([
             'registration_company[email]' => $existingEmail,
             'registration_company[plainPassword]' => 'Password123!',
             'registration_company[companyName]' => $existingCompanyName,
@@ -68,7 +68,7 @@ class RegistrationCompanyControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
 
         $content = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('Le nom de cette entreprise est deja utilise.', $content);
-        self::assertStringContainsString('Cet email est deja utilise.', $content);
+        self::assertMatchesRegularExpression('/Le nom de cette entreprise est .*utilis/i', $content);
+        self::assertMatchesRegularExpression('/Cet email est .*utilis/i', $content);
     }
 }

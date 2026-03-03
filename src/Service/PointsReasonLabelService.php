@@ -6,6 +6,7 @@ use App\Entity\Offer;
 use App\Entity\PointsClaim;
 use App\Entity\PointsClaimReviewEvent;
 use App\Entity\PointsPolicyDecision;
+use App\Entity\User;
 
 class PointsReasonLabelService
 {
@@ -22,8 +23,8 @@ class PointsReasonLabelService
         PointsClaim::REASON_CODE_ANTI_FRAUD_MONTHLY_POINTS_CAP => 'Plafond mensuel de points atteint',
         PointsClaim::REASON_CODE_FREEMIUM_MONTHLY_CLAIMS_QUOTA => 'Quota mensuel de demandes freemium atteint',
         PointsClaim::REASON_CODE_COOLDOWN_ACTIVE => 'Pause de sécurité activée',
-        PointsClaim::REASON_CODE_APPROVED_BY_REVIEWER => 'Validé par un reviewer',
-        PointsClaim::REASON_CODE_REJECTED_BY_REVIEWER => 'Rejeté par un reviewer',
+        PointsClaim::REASON_CODE_APPROVED_BY_REVIEWER => 'Validé par un relecteur',
+        PointsClaim::REASON_CODE_REJECTED_BY_REVIEWER => 'Rejeté par un relecteur',
         'COMPANY_COOLDOWN_ACTIVE' => 'Pause de sécurité activée',
         'COMPANY_DAILY_POINTS_CAP' => 'Plafond journalier entreprise atteint',
         'COMPANY_DAILY_CREDITS_CAP' => 'Plafond journalier de crédits entreprise atteint',
@@ -43,8 +44,8 @@ class PointsReasonLabelService
         PointsClaimReviewEvent::ACTION_AUTO_APPROVED => 'Validée automatiquement',
         PointsClaimReviewEvent::ACTION_AUTO_REJECTED => 'Rejetée automatiquement',
         PointsClaimReviewEvent::ACTION_MARKED_IN_REVIEW => 'En cours de revue',
-        PointsClaimReviewEvent::ACTION_APPROVED => 'Validée par reviewer',
-        PointsClaimReviewEvent::ACTION_REJECTED => 'Rejetée par reviewer',
+        PointsClaimReviewEvent::ACTION_APPROVED => 'Validée par un relecteur',
+        PointsClaimReviewEvent::ACTION_REJECTED => 'Rejetée par un relecteur',
     ];
 
     /**
@@ -102,6 +103,41 @@ class PointsReasonLabelService
         ImpactEligibilityService::REASON_CODE_FORBIDDEN_ACTIVITY => 'Activité interdite détectée',
         ImpactEligibilityService::REASON_CODE_LOW_IMPACT_SCORE => "Score d'impact insuffisant",
         ImpactEligibilityService::REASON_CODE_EVIDENCE_PROVIDER_UNAVAILABLE => 'Vérification externe indisponible',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const LEDGER_REFERENCE_LABELS = [
+        'POINTS_CLAIM_APPROVAL' => 'Validation de demande de points',
+        'APPLICATION_HIRED' => 'Candidature embauchée',
+        'OFFER_PUBLICATION' => "Publication d'offre",
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const LEDGER_REASON_LABELS = [
+        'Points claim approved' => 'Demande de points validée',
+        'Candidate points for hired application' => 'Points candidat attribués après embauche',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const CANDIDATE_LEVEL_LABELS = [
+        'Bronze' => 'Bronze',
+        'Silver' => 'Argent',
+        'Gold' => 'Or',
+        'Impact Leader' => 'Leader Impact',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const ACCOUNT_TYPE_LABELS = [
+        User::ACCOUNT_TYPE_PERSON => 'Candidat',
+        User::ACCOUNT_TYPE_COMPANY => 'Entreprise',
     ];
 
     public function pointsClaimReasonLabel(?string $reasonCode): string
@@ -187,6 +223,54 @@ class PointsReasonLabelService
         }
 
         return self::OFFER_MODERATION_REASON_LABELS[$normalizedCode] ?? $normalizedCode;
+    }
+
+    public function ledgerReferenceLabel(?string $referenceType): string
+    {
+        $normalizedReferenceType = $this->normalizeCode($referenceType);
+        if (null === $normalizedReferenceType) {
+            return '-';
+        }
+
+        return self::LEDGER_REFERENCE_LABELS[$normalizedReferenceType] ?? $normalizedReferenceType;
+    }
+
+    public function ledgerReasonLabel(?string $reason): string
+    {
+        if (!is_string($reason)) {
+            return '-';
+        }
+
+        $normalizedReason = trim($reason);
+        if ('' === $normalizedReason) {
+            return '-';
+        }
+
+        return self::LEDGER_REASON_LABELS[$normalizedReason] ?? $normalizedReason;
+    }
+
+    public function candidateLevelLabel(?string $level): string
+    {
+        if (!is_string($level)) {
+            return '-';
+        }
+
+        $normalizedLevel = trim($level);
+        if ('' === $normalizedLevel) {
+            return '-';
+        }
+
+        return self::CANDIDATE_LEVEL_LABELS[$normalizedLevel] ?? $normalizedLevel;
+    }
+
+    public function accountTypeLabel(?string $accountType): string
+    {
+        $normalizedAccountType = $this->normalizeCode($accountType);
+        if (null === $normalizedAccountType) {
+            return '-';
+        }
+
+        return self::ACCOUNT_TYPE_LABELS[$normalizedAccountType] ?? $normalizedAccountType;
     }
 
     private function normalizeCode(?string $value): ?string
